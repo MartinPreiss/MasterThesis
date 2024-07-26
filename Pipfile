@@ -8,6 +8,7 @@ bertviz = "*"
 matplotlib = "*"
 pandas = "*"
 seaborn = "*"
+accelerate = "*"
 
 [dev-packages]
 ipykernel = "*"
