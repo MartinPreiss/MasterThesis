@@ -37,6 +37,12 @@ def find_token_pos_of_substring(text,substring,tokenizer):
 
     return substring_token_start_idx, substring_token_end_idx
 
+prompt = """Question: {question}
+
+Answer: {answer}
+
+Does the answer contain only factually correct statements?
+"""
 
 def calculate_attention_entropy(prompt,model,tokenizer):
 
@@ -60,9 +66,32 @@ def calculate_attention_entropy(prompt,model,tokenizer):
     attention = torch.stack(tuple(layer[:,:,:,:len(tokens)] for layer in attention))
 
     # Calculate entropy along the last dimension
-    entropy = -torch.sum(attention * torch.log(attention + 1e-9), dim=-1)
+    normalized_entropy = -torch.sum(attention * torch.log(attention + 1e-9), dim=-1) / torch.log(torch.tensor(len(tokens)))
 
-    return entropy, decoded_text
+    return normalized_entropy, decoded_text
+
+def get_attention(prompt,model,tokenizer):
+
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    input_id_list = input_ids["input_ids"][0].tolist()# Batch index 0
+    input_ids =input_ids.to('cuda')
+    output = model.generate(**input_ids,max_length=len(input_id_list)*2, return_dict_in_generate=True, output_scores=True, output_attentions=True)
+
+    attention = output["attentions"]
+    sequences = output["sequences"]
+    tokens = tokenizer.convert_ids_to_tokens(input_id_list) 
+
+    # Convert the predicted token IDs to text
+    decoded_text = tokenizer.decode(sequences[0])
+
+
+    #preprocess
+    attention = attention[0] #only first generation
+
+
+    attention = torch.stack(tuple(layer[:,:,:,:len(tokens)] for layer in attention))
+
+    return attention, decoded_text
 
 def get_df():
     path= "/home/knowledgeconflict/home/martin/hpi-mp-facts-matter/data/full_download_test.jsonl"
@@ -97,15 +126,15 @@ def main():
     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
 
         #original
-        original_dir_path = "./data/entropys/original/"
-        original_prompt = row["answer"]
+        original_dir_path = "./data/prompt_entropys/original/"
+        original_prompt = prompt.format(question=row["question"],answer =row["answer"]) 
         original_entropy, original_decoded_text = calculate_attention_entropy(prompt=original_prompt,model=model,tokenizer=tokenizer)
         original_entity = row['intermediate_results']["entities"][0]
         original_first_token_pos, original_last_token_pos  = find_token_pos_of_substring(original_prompt,original_entity,tokenizer)
 
         #transformed
-        transformed_dir_path = "./data/entropys/transformed/"
-        transformed_prompt = row["transformed_answer"]
+        transformed_dir_path = "./data/prompt_entropys/transformed/"
+        transformed_prompt = prompt.format(question=row["question"],answer =row["transformed_answer"]) 
         transformed_entropy, transformed_decoded_text = calculate_attention_entropy(prompt=transformed_prompt,model=model,tokenizer=tokenizer)
         transformed_entity = row['intermediate_results']["new_entities"][0]
         transformed_first_token_pos, transformed_last_token_pos  = find_token_pos_of_substring(transformed_prompt,transformed_entity,tokenizer)
@@ -122,7 +151,7 @@ def main():
         df.loc[index, "original_last_token_pos"]=  original_last_token_pos
         df.loc[index, "transformed_last_token_pos"]= transformed_last_token_pos
 
-    df.to_json("./data/entropys/data.json", lines=True, orient="records")
+    df.to_json("./data/prompt_entropys/data.json", lines=True, orient="records")
 
 
 
