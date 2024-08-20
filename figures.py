@@ -2,12 +2,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-def create_heat_map_for_tensor(tensor):
+def create_heat_map_for_tensor(tensor,title):
     # Create a heatmap
     sns.heatmap(tensor, annot=False, cmap='viridis')
     
     # Add titles and labels
-    plt.title('Heatmap of DataFrame')
+    plt.title('Heatmap of '+title)
     plt.xlabel('Columns')
     plt.ylabel('Rows')
     
@@ -22,7 +22,7 @@ def create_hist_for_tensor(tensors,title, xlim,ylim):
 
     # Now plot as before
     plt.figure(figsize=(10, 6))
-    plt.hist(original_values, bins=30, alpha=0.7, edgecolor='black')
+    plt.hist(original_values, edgecolor='black')
     plt.title(title)
     plt.xlim(xlim)
     plt.ylim(ylim)

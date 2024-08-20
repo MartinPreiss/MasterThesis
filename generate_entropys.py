@@ -104,6 +104,14 @@ def get_df():
     df[df['transformed_answer_tagged'].apply(lambda x: x.count("<swap>") == 1)]
     return df
 
+def get_token_input_ids(prompt,tokenizer):
+
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    input_id_list = input_ids["input_ids"][0].tolist()# Batch index 0
+    input_ids =input_ids.to('cuda')
+    tokens = tokenizer.convert_ids_to_tokens(input_id_list) 
+
+    return tokens, input_ids
 
 
 def main():
