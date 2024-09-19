@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python Debugger: Current File with Arguments",
+        "type": "python",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "args": "${command:pickArgs}"
+      },
+      {
+        "name": "CONFIG CUDA:Debug Logit Lens",
+        "type": "python",
+        "request": "launch",
+        "module": "thesis.xai.logit_lens",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}",
+          "CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
+        }
+      }
+    ]
+  }
+  
