@@ -1,6 +1,7 @@
 import pandas as pd
 import torch 
 import os
+import pickle
 
 def get_df(tag_type=None):
     path= "/home/knowledgeconflict/home/martin/hpi-mp-facts-matter/data/full_download.jsonl"
@@ -11,15 +12,24 @@ def get_df(tag_type=None):
     df = df.dropna()
     return df
 
-prompt = """Question: {question}
+prompt = """
+You will get an user_question and an user_answer. Your task is to fact check the user_answer. 
+So, does the User_Answer contain only factually correct statements? 
+Only output True or False!
 
-Answer: {answer}
+Example: 
+    User_Question: Where is Berlin located ? 
+    User_Answer: Berlin is located in France. 
+    Output: The User_Answer is False.
 
-Does the answer contain only factually correct statements? Only answer with Yes or No!
-"""
+User_Question: {question}
+
+User_Answer: {answer}
+
+Output: The User_Answer is """
 
 def get_prompt_df():
-    df = get_df()
+    df = get_df(tag_type="swap")
     
     df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
     df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["transformed_answer"]), axis=1)
@@ -32,4 +42,13 @@ def print_cuda_info():
     if torch.cuda.is_available():
         print("CUDA is available")
     print("CUDA_VISIBLE_DEVICES: ", os.environ["CUDA_VISIBLE_DEVICES"])
+
+def write_pickle(data,filename,path):
+    with open(path+filename + ".pkl", "wb") as file:
+        pickle.dump(data, file)
+
+def load_pickle(filename,path):
+    with open(path+filename + ".pkl", "rb") as file:
+        my_list = pickle.load(file)
+    return my_list
         
