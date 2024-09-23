@@ -4,17 +4,16 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
 )
-from thesis.utils import get_prompt_df, print_cuda_info, write_pickle
+from thesis.utils import get_prompt_df, print_cuda_info,clear_unused_gpu_memory, write_pickle
 
 from thesis.xai.hook import Hook
-
+from tqdm import tqdm
 
 
 def logit_lens(model, hooks):
     layer_outputs = []
     for hook in hooks:
-        
-        layer_outputs.append(model.lm_head(hook.data))
+        layer_outputs.append(model.lm_head(hook.data).cpu())
     return layer_outputs
 
 def get_hooks(model):
@@ -30,9 +29,9 @@ def get_label_ids(tokenizer):
 
     # Tokenize and get token IDs for each word in the list
     true_ids = [tokenizer.encode(word, add_special_tokens=False) for word in true_words]
-    true_ids = torch.tensor(true_ids).flatten().to('cuda')
+    true_ids = torch.tensor(true_ids).flatten().cpu()
     false_ids = [tokenizer.encode(word, add_special_tokens=False) for word in false_words]
-    false_ids = torch.tensor(false_ids).flatten().to('cuda')
+    false_ids = torch.tensor(false_ids).flatten().cpu()
     
     return true_ids, false_ids
 
@@ -45,7 +44,7 @@ def save_layer_outputs(prompts,model,tokenizer, hooks,output_path):
     topk_tokens = []
     topk_scores = []
     
-    for index, prompt in prompts.items():
+    for index, prompt in tqdm(prompts.items()):
         results = {}
         input_ids = tokenizer(prompt, return_tensors="pt").to('cuda')
         #forward pass and final output
@@ -57,8 +56,10 @@ def save_layer_outputs(prompts,model,tokenizer, hooks,output_path):
         original_answers.append(decoded_text)
         
         #calculate logit_lens / get intermediate scores
-        layer_scores = logit_lens(model,hooks)
-
+        layer_scores = torch.stack(logit_lens(model,hooks))
+        layer_scores = layer_scores.cpu()
+        clear_unused_gpu_memory
+        
         #calculate metric 
         layer_labeled_true_scores = []
         layer_labeled_false_scores = []

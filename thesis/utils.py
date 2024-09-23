@@ -1,10 +1,11 @@
 import pandas as pd
+import gc
 import torch 
 import os
 import pickle
 
 def get_df(tag_type=None):
-    path= "/home/knowledgeconflict/home/martin/hpi-mp-facts-matter/data/full_download.jsonl"
+    path= "/home/knowledgeconflict/home/martin/hpi-mp-facts-matter/data/full_download_23_09_24.jsonl"
     df = pd.read_json(path, lines=True, orient="records")
     df = df[df["is_correct"] == True]
     if tag_type:
@@ -29,7 +30,7 @@ User_Answer: {answer}
 Output: The User_Answer is """
 
 def get_prompt_df():
-    df = get_df(tag_type="swap")
+    df = get_df()
     
     df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
     df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["transformed_answer"]), axis=1)
@@ -51,4 +52,27 @@ def load_pickle(filename,path):
     with open(path+filename + ".pkl", "rb") as file:
         my_list = pickle.load(file)
     return my_list
-        
+
+def clear_all__gpu_memory():
+    # Delete all variables that reference tensors on the GPU
+    for obj in dir():
+        if isinstance(obj, torch.Tensor) and obj.is_cuda:
+            del obj
+
+    # Call garbage collector to free up memory
+    gc.collect()
+
+    # Empty the CUDA cache
+    torch.cuda.empty_cache()
+
+    print(f"Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+    print(f"Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+
+def clear_unused_gpu_memory():
+    # Call garbage collector to free up memory
+    gc.collect()
+
+    # Empty the CUDA cache
+    torch.cuda.empty_cache()
+    print(f"Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+    print(f"Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
