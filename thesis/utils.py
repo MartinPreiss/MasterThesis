@@ -4,34 +4,29 @@ import torch
 import os
 import pickle
 
+from thesis.config import REFACT_PATH
+from thesis.prompts import system_prompt_valid_invalid, user_prompt_valid_invalid, simple_prompt
+
+def get_gemma_prompt(cot=False):
+    if not cot: 
+        prompt = system_prompt_valid_invalid.split("Evaluation Process:")[0].strip() + user_prompt_valid_invalid.split("Thought process:")[0].strip()
+        print(prompt)
+    else:
+        prompt =system_prompt_valid_invalid + user_prompt_valid_invalid
+        
+    return prompt 
+
 def get_df(tag_type=None):
-    path= "/home/knowledgeconflict/home/martin/hpi-mp-facts-matter/data/full_download_23_09_24.jsonl"
+    path= REFACT_PATH
     df = pd.read_json(path, lines=True, orient="records")
-    df = df[df["is_correct"] == True]
     if tag_type:
         df = df[df["tag_type"] == tag_type]
     df = df.dropna()
     return df
 
-prompt = """
-You will get an user_question and an user_answer. Your task is to fact check the user_answer. 
-So, does the User_Answer contain only factually correct statements? 
-Only output True or False!
-
-Example: 
-    User_Question: Where is Berlin located ? 
-    User_Answer: Berlin is located in France. 
-    Output: The User_Answer is False.
-
-User_Question: {question}
-
-User_Answer: {answer}
-
-Output: The User_Answer is """
-
 def get_prompt_df():
     df = get_df()
-    
+    prompt = simple_prompt
     df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
     df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["transformed_answer"]), axis=1)
     return df[["transformed_prompt","original_prompt"]]
@@ -59,11 +54,13 @@ def clear_all__gpu_memory():
         if isinstance(obj, torch.Tensor) and obj.is_cuda:
             del obj
 
-    # Call garbage collector to free up memory
-    gc.collect()
+
 
     # Empty the CUDA cache
     torch.cuda.empty_cache()
+    
+    # Call garbage collector to free up memory
+    gc.collect()
 
     print(f"Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
     print(f"Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
