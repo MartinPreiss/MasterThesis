@@ -2,3 +2,5 @@
 *.html
 *.png
 *.csv
+*.pyc
+data/*
