@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
       {
         "name": "Python Debugger: Current File with Arguments",
         "type": "python",
@@ -10,10 +11,21 @@
         "args": "${command:pickArgs}"
       },
       {
-        "name": "CONFIG CUDA:Debug Logit Lens",
+        "name": "CONFIG CUDA:Debug Create dataset",
         "type": "python",
         "request": "launch",
-        "module": "thesis.xai.logit_lens",
+        "module": "thesis.ue.create_dataset",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}",
+          "CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
+        }
+      },
+      {
+        "name": "CONFIG CUDA:Debug Train Classifier",
+        "type": "python",
+        "request": "launch",
+        "module": "thesis.ue.train_classifier",
         "console": "integratedTerminal",
         "env": {
           "PYTHONPATH": "${workspaceFolder}",
