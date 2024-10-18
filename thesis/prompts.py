@@ -41,11 +41,11 @@ Answer: {answer}
 Thought process: 
 """
 
-simple_prompt = """Your task is to evaluate the factual correctness of a given answer to a question. Provide only a final verdict of either TRUE if the entire answer is factually correct, or FALSE if any part of the answer contains inaccuracies or hallucinations. 
+simple_prompt = """Your task is to evaluate the factual correctness of a given answer to a question. Provide only a final verdict of either [TRUE] if the entire answer is factually correct, or [FALSE] if any part of the answer contains inaccuracies or hallucinations. 
 Only output the Final Verdict. No Explanation. 
 Question: {question}
 Answer: {answer}
-Final Verdict: The answer is """
+Final Verdict: The answer is ["""
 
 one_example_prompt = """
 You will get an user_question and an user_answer. Your task is to fact check the user_answer. 
