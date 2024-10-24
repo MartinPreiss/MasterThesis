@@ -1,0 +1,35 @@
+
+import torch.nn as nn
+
+class SimpleClassifier(nn.Module):
+    def __init__(self, input_size, num_layers=3):
+        super(SimpleClassifier, self).__init__()
+        
+        # List to hold the layers
+        self.layers = nn.ModuleList()
+        current_size = input_size
+        
+        # Dynamically create hidden layers
+        for i in range(num_layers - 1):
+            next_size = current_size // 2  # Halving the size each time
+            self.layers.append(nn.Linear(in_features=current_size, out_features=next_size))
+            
+            current_size = next_size
+        
+        # Final output layer (reducing to 1 or a predefined output size)
+        self.output_layer = nn.Linear(in_features=current_size, out_features=1)
+
+        # Activation function
+        self.relu = nn.LeakyReLU()
+        
+        #weight init
+        for layer in self.layers:
+            nn.init.kaiming_normal_(layer.weight,nonlinearity="leaky_relu")
+        nn.init.kaiming_normal_(self.output_layer.weight,nonlinearity="leaky_relu")
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = self.relu(layer(x))
+        
+        x = self.output_layer(x)
+        return x
