@@ -73,3 +73,9 @@ def clear_unused_gpu_memory():
     torch.cuda.empty_cache()
     print(f"Memory Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
     print(f"Memory Cached: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+    
+def print_number_of_parameters(model):
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params}")
+    
