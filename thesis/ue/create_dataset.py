@@ -16,7 +16,7 @@ from tqdm import tqdm
 def get_embeddings(hooks):
     embeddings = []
     for hook in hooks:
-        embeddings.append(hook.data[:,-1,:])  # postprocess (hook only saves last token )     
+        embeddings.append(hook.data[:,-1,:].cpu())  # postprocess (hook only saves last token )     
         hook.clear_hook()
         
     return torch.cat(embeddings)
@@ -51,7 +51,7 @@ def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_o
         labels.append(label)
         sample_embeddings.append(embeddings)
     
-    return TensorDataset(torch.cat(sample_embeddings),torch.Tensor(labels).unsqueeze(1))
+    return TensorDataset(torch.stack(sample_embeddings),torch.Tensor(labels).unsqueeze(1))
 if __name__ == "__main__":    
     
     df = get_prompt_df()
@@ -59,18 +59,18 @@ if __name__ == "__main__":
     df_fake_prompt = df["transformed_prompt"]
     
     #model_id = 'meta-llama/Meta-Llama-3-8B-Instruct'
-    model_id = 'google/gemma-2-9b-it'
+    model_id = 'google/gemma-2-27b-it'
     tokenizer = AutoTokenizer.from_pretrained(model_id,device_map="auto")
     model = AutoModelForCausalLM.from_pretrained(model_id, output_attentions=True,device_map="auto")
+    print(model)
+    print(len(model.model.layers))
     
-    layer_ids = [20]
     #hook layers
-    hooks = get_hooks(model,layer_ids=layer_ids)
+    hooks = get_hooks(model)
     
     original_dataset = get_embedding_dataset(df_original_prompt,model,tokenizer,hooks,true_output="TRUE",wrong_output="FALSE")
     transformed_dataset = get_embedding_dataset(df_fake_prompt,model,tokenizer,hooks,true_output="FALSE",wrong_output="TRUE")
     
     combined_dataset = ConcatDataset([original_dataset, transformed_dataset])
     model_name = model_id[model_id.rfind("/")+1:]
-    torch.save(combined_dataset,f"./data/datasets/embeddings/embedding_{model_name}_{layer_ids}.pth")
-    
+    torch.save(combined_dataset,f"./data/datasets/embeddings/embedding_{model_name}_all.pth")

@@ -20,8 +20,8 @@ wandb.init(
     "learning_rate": 0.001,
     "epochs": 50,
     "model_name": "gemma-2-9b-it",
-    "layer_ids": [20],
-    "num_fnn_layers": 1
+    "layer_ids": "all",
+    "num_fnn_layers": 3
     }
 )
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     
     #loading classifier
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    input_size = dataset[0][0].shape[-1] #first batch, first input
+    input_size = dataset[0][0].shape[-1] #first batch, first input #embedding size
     print("Embedding Size", input_size) 
     model = SimpleClassifier(input_size,num_layers=wandb.config.num_fnn_layers).to(device)
     total_params = sum(p.numel() for p in model.parameters())
@@ -145,4 +145,4 @@ if __name__ == "__main__":
         print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss:.4f}")
 
     # Save the model checkpoint
-    torch.save(model.state_dict(), "simple_classifier.pth")
+    # torch.save(model.state_dict(), "simple_classifier.pth")
