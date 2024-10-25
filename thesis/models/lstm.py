@@ -7,9 +7,9 @@ class LSTMModel(nn.Module):
     def __init__(self, input_size):
         super(LSTMModel, self).__init__()
         
-        hidden_size = input_size // 2
+        hidden_size = input_size // 4
         # LSTM layer
-        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size,num_layers=2, batch_first=True)
         
         # Fully connected layer (maps from hidden state output to the prediction)
         self.fc = nn.Linear(hidden_size, 1)
@@ -34,6 +34,6 @@ class LSTMModel(nn.Module):
         #out has shape of [batch,sequence_length,hidden_size]
             
         # Pass through fully connected layer
-        out = self.fc(out)
+        out = self.fc(out[:,-1,:])
         
         return out

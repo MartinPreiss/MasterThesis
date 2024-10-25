@@ -6,8 +6,8 @@ from torch.utils.data import Subset
 
 from thesis.models.neural_net import SimpleClassifier
 from thesis.metrics import calculate_metrics
-from thesis.data_handling import get_embedding_dataset, get_dataloaders
-from thesis.utils import print_number_of_parameters
+from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
+from thesis.utils import print_number_of_parameters, get_device
 
 import wandb
 import warnings
@@ -24,13 +24,13 @@ wandb.init(
     config={
         "learning_rate": 0.001,
         "epochs": 50,
-        "model_name": "gemma-2-27b-it",
+        "model_name": "gemma-2-9b-it",
         "num_fnn_layers": 3,
     },
 )
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = get_device()
 
 
 def train_classifier(model, train_loader, val_loader, num_layers):
@@ -87,7 +87,7 @@ def train_classifier(model, train_loader, val_loader, num_layers):
                 all_preds >= 0.0, 1.0, 0.0
             )  # Convert logits to binary predictions
             acc, prec, rec, f1 = calculate_metrics(
-                predictions=all_preds, labels=all_labels
+                preds=all_preds, labels=all_labels
             )
             if f1 > max_f1:
                 max_prec = prec
@@ -118,6 +118,7 @@ if __name__ == "__main__":
     # Load the dataset
     dataset = get_embedding_dataset(wandb.config.model_name)
 
+    dataset = PCADataset(dataset,n_components=100,layer_wise=False)
     # dataset = Subset(dataset,range(10))
     train_loader, val_loader = get_dataloaders(dataset)
 

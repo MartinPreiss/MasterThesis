@@ -78,4 +78,6 @@ def print_number_of_parameters(model):
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total number of parameters: {total_params}")
-    
+
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
