@@ -11,6 +11,7 @@ seaborn = "*"
 accelerate = "*"
 scikit-learn = "*"
 dotmap = "*"
+hydra-core = "*"
 
 [dev-packages]
 ipykernel = "*"

@@ -86,14 +86,7 @@ def print_number_of_parameters(model):
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def get_config_and_init_wandb(name=None):
-    # Load the hierarchical config file
-    with open("config.yaml", "r") as file:
-        config = DotMap(yaml.safe_load(file))
-
-    # Initialize wandb with the hierarchical config
+def init_wandb(cfg,name=None):
     if name: 
-        name = name+config["llm_model_name"]
-    wandb.init(project="thesis",name=name)
-    wandb.config.update(config.toDict())
-    return config
+        name = name+cfg.llm_model_name
+    wandb.init(project="thesis",name=name,config=dict(cfg))

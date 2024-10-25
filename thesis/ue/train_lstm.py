@@ -7,7 +7,9 @@ from torch.utils.data import Subset
 from thesis.models.lstm import LSTMModel
 from thesis.metrics import calculate_metrics
 from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
-from thesis.utils import print_number_of_parameters,get_device, get_config_and_init_wandb
+from thesis.utils import print_number_of_parameters,get_device, init_wandb
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 import wandb
 import warnings
@@ -15,14 +17,12 @@ import warnings
 from tqdm import tqdm
 
 warnings.filterwarnings("always")
-# start a new wandb run to track this script
-cfg = get_config_and_init_wandb(name="LSTM")
 device = get_device()
 
 
-def train_classifier(model, train_loader, val_loader,num_layers):
+def train_classifier(cfg, model, train_loader, val_loader,num_layers):
 
-    start = num_layers // 2
+    start = 0 #num_layers // 2
     end = num_layers - 0 
     
     num_layers = len(range(start,end))
@@ -31,6 +31,7 @@ def train_classifier(model, train_loader, val_loader,num_layers):
     optimizer = optim.Adam(model.parameters(), lr=cfg.training_params.learning_rate)
     
     # training loop
+    max_f1 = 0
     for epoch in tqdm(range(cfg.training_params.epochs)):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
@@ -81,15 +82,21 @@ def train_classifier(model, train_loader, val_loader,num_layers):
         wandb.log(data={"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
         # Save the model checkpoint
         # torch.save(model.state_dict(), "simple_classifier.pth")
+        max_f1 = f1 if f1>max_f1 else max_f1
+    wandb.log({"max_f1":max_f1})
 
-
-if __name__ == "__main__":
+@hydra.main(config_path="../config", config_name="config")
+def prepare_and_start_training(cfg : DictConfig):
+    
+    
+    # start a new wandb run to track this script
+    init_wandb(cfg,name="LSTM")
 
     # Load the dataset
     dataset = get_embedding_dataset(cfg)
     
     # dataset = Subset(dataset,range(10))
-    train_loader, val_loader = get_dataloaders(dataset)
+    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
 
     input_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
@@ -99,4 +106,7 @@ if __name__ == "__main__":
 
     print_number_of_parameters(model)
 
-    train_classifier(model=model,train_loader=train_loader,val_loader=val_loader,num_layers = num_layers)
+    train_classifier(cfg=cfg,model=model,train_loader=train_loader,val_loader=val_loader,num_layers = num_layers)
+
+if __name__ == "__main__":
+    prepare_and_start_training()

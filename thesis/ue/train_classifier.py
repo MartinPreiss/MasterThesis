@@ -106,7 +106,7 @@ if __name__ == "__main__":
     dataset = get_embedding_dataset(cfg)
     
     # dataset = Subset(dataset,range(10))
-    train_loader, val_loader = get_dataloaders(dataset)
+    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
 
     input_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size

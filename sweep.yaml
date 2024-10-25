@@ -3,30 +3,22 @@ project: Thesis
 method: bayes
 metric:
   goal: maximize
-  name: f1
+  name: max_f1
 parameters:
   training_params.learning_rate:
-    max: 0.01
-    min: 0.0005
-    distribution: uniform
+    values: [0.01,0.001,0.0001,0.00001]
   training_params.epochs:
-    max: 500
-    min: 25
-    distribution: int_uniform
+    values: [ 25, 100, 500]  
   pca.use_pca:
     values: [true, false]  # Use categorical for booleans
   pca.n_components:
-    values: [50, 100, 150, 200,500,1000]  
+    values: [ 100, 150, 200]  
   pca.layer_wise:
     values: [true, false] 
   lstm.num_layers:
-    max: 6
-    min: 1
-    distribution: int_uniform  
+    values: [1,2,3]
   lstm.hidden_size:
-    max: 500
-    min: 25
-    distribution: int_uniform
+    values: [10,25,50,100,150,200,250]
 
 command:
   - ${env}

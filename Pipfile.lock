@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1c704f0d3694b0b5fe5ff31b4ca7b2bba34c6c8a58b86fc4fd3571851df5c5a0"
+            "sha256": "961ec025f5de9fa149bfe121cefbb546f4f139272024322a4dad537be56bddfb"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -24,6 +24,12 @@
             "index": "pypi",
             "markers": "python_full_version >= '3.8.0'",
             "version": "==1.0.1"
+        },
+        "antlr4-python3-runtime": {
+            "hashes": [
+                "sha256:f224469b4168294902bb1efa80a8bf7855f24c99aef99cbefc1bcd3cce77881b"
+            ],
+            "version": "==4.9.3"
         },
         "bertviz": {
             "hashes": [
@@ -332,6 +338,14 @@
             ],
             "markers": "python_full_version >= '3.8.0'",
             "version": "==0.26.1"
+        },
+        "hydra-core": {
+            "hashes": [
+                "sha256:8a878ed67216997c3e9d88a8e72e7b4767e81af37afb4ea3334b269a4390a824",
+                "sha256:fa0238a9e31df3373b35b0bfb672c34cc92718d21f81311d8996a16de1141d8b"
+            ],
+            "index": "pypi",
+            "version": "==1.3.2"
         },
         "idna": {
             "hashes": [
@@ -777,6 +791,14 @@
             ],
             "markers": "platform_system == 'Linux' and platform_machine == 'x86_64'",
             "version": "==12.4.127"
+        },
+        "omegaconf": {
+            "hashes": [
+                "sha256:7b4df175cdb08ba400f45cae3bdcae7ba8365db4d165fc65fd04b050ab63b46b",
+                "sha256:d5d4b6d29955cc50ad50c46dc269bcd92c6e00f5f90d23ab5fee7bfca4ba4cc7"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==2.3.0"
         },
         "packaging": {
             "hashes": [
