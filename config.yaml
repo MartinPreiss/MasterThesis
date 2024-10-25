@@ -1,0 +1,17 @@
+llm_model_name: "gemma-2-9b-it"
+
+training_params:
+  learning_rate: 0.001
+  epochs: 50
+
+pca:
+  use_pca: True
+  n_components: 100
+  layer_wise: False
+
+nn:
+  num_layers: 3
+
+lstm:
+  hidden_size: 50
+  num_layers: 2

@@ -1,35 +1,16 @@
 from sklearn.linear_model import LogisticRegression
-#import  
 import torch 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import wandb
 
-wandb.init(
-    # set the wandb project where this run will be logged
-    project="thesis",
-    name= "Log_Reg_all_layers_gemma27",
+from thesis.utils import get_config_and_init_wandb
+from thesis.data_handling import get_embedding_dataset
+from thesis.metrics import calculate_metrics
 
-    # track hyperparameters and run metadata
-    config={
-    "model_name": "gemma-2-27b-it",
-    "layer_ids": "all",
-    }
-)
-    
-def calculate_metrics(preds, labels):
+cfg  = get_config_and_init_wandb(name="Log_Reg")
 
-    accuracy = accuracy_score(y_true=labels, y_pred=preds)
-    precision = precision_score(y_true=labels, y_pred=preds)
-    recall = recall_score(y_true=labels, y_pred=preds)
-    f1 = f1_score(y_true=labels, y_pred=preds)
-
-    return accuracy, precision, recall, f1
-    
-
-# Load the dataset
-dataset = torch.load(f"./data/datasets/embeddings/embedding_{wandb.config['model_name']}_{wandb.config['layer_ids']}.pth")   
-
+# Load the dataset 
+dataset = get_embedding_dataset(cfg)
 #dataset = Subset(dataset,range(10))
 # Split the dataset
 data_size = len(dataset)

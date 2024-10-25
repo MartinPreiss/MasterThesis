@@ -7,7 +7,7 @@ from torch.utils.data import Subset
 from thesis.models.lstm import LSTMModel
 from thesis.metrics import calculate_metrics
 from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
-from thesis.utils import print_number_of_parameters,get_device
+from thesis.utils import print_number_of_parameters,get_device, get_config_and_init_wandb
 
 import wandb
 import warnings
@@ -16,19 +16,7 @@ from tqdm import tqdm
 
 warnings.filterwarnings("always")
 # start a new wandb run to track this script
-wandb.init(
-    # set the wandb project where this run will be logged
-    project="thesis",
-    name="LSTM_GEMMA",
-    # track hyperparameters and run metadata
-    config={
-        "learning_rate": 0.001,
-        "epochs": 500,
-        "model_name": "gemma-2-9b-it"
-    },
-)
-
-
+cfg = get_config_and_init_wandb(name="LSTM")
 device = get_device()
 
 
@@ -40,10 +28,10 @@ def train_classifier(model, train_loader, val_loader,num_layers):
     num_layers = len(range(start,end))
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=cfg.training_params.learning_rate)
     
     # training loop
-    for epoch in tqdm(range(wandb.config.epochs)):
+    for epoch in tqdm(range(cfg.training_params.epochs)):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data 
@@ -98,8 +86,7 @@ def train_classifier(model, train_loader, val_loader,num_layers):
 if __name__ == "__main__":
 
     # Load the dataset
-    dataset = get_embedding_dataset(wandb.config.model_name)
-    dataset = PCADataset(dataset,n_components=100,layer_wise=False)
+    dataset = get_embedding_dataset(cfg)
     
     # dataset = Subset(dataset,range(10))
     train_loader, val_loader = get_dataloaders(dataset)
@@ -108,7 +95,7 @@ if __name__ == "__main__":
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
     print("Embedding Size", input_size, "Number of Layers", num_layers)
 
-    model = LSTMModel(input_size).to(device)
+    model = LSTMModel(input_size,hidden_size=cfg.lstm.hidden_size,num_layers=cfg.lstm.num_layers).to(device)
 
     print_number_of_parameters(model)
 

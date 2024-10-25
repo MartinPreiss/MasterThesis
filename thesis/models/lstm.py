@@ -4,12 +4,11 @@ import torch.optim as optim
 
 # Define the LSTM Model with Initialization
 class LSTMModel(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, hidden_size,num_layers):
         super(LSTMModel, self).__init__()
         
-        hidden_size = input_size // 4
         # LSTM layer
-        self.lstm = nn.LSTM(input_size, hidden_size,num_layers=2, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size,num_layers=num_layers, batch_first=True)
         
         # Fully connected layer (maps from hidden state output to the prediction)
         self.fc = nn.Linear(hidden_size, 1)

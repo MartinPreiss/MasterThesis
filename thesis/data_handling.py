@@ -3,8 +3,11 @@ from torch.utils.data import Dataset,DataLoader
 from torch.utils.data import random_split
 from sklearn.decomposition import PCA
 
-def get_embedding_dataset(model_name):
-    return torch.load(f"./data/datasets/embeddings/embedding_{model_name}_all.pth")   
+def get_embedding_dataset(cfg):
+    dataset = torch.load(f"./data/datasets/embeddings/embedding_{cfg.llm_model_name}_all.pth")   
+    if cfg.pca.use_pca:    
+        dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)
+    return dataset
 
 def get_dataloaders(dataset):
 

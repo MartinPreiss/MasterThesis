@@ -4,6 +4,10 @@ import torch
 import os
 import pickle
 
+import wandb
+import yaml
+from dotmap import DotMap
+
 from thesis.config import REFACT_PATH
 from thesis.prompts import system_prompt_valid_invalid, user_prompt_valid_invalid, simple_prompt
 
@@ -81,3 +85,15 @@ def print_number_of_parameters(model):
 
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def get_config_and_init_wandb(name=None):
+    # Load the hierarchical config file
+    with open("config.yaml", "r") as file:
+        config = DotMap(yaml.safe_load(file))
+
+    # Initialize wandb with the hierarchical config
+    if name: 
+        name = name+config["llm_model_name"]
+    wandb.init(project="thesis",name=name)
+    wandb.config.update(config.toDict())
+    return config
