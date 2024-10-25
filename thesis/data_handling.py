@@ -1,6 +1,5 @@
 import torch 
 from torch.utils.data import Dataset,DataLoader, TensorDataset
-from torch.utils.data import random_split
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 
@@ -13,22 +12,28 @@ def get_embedding_dataset(cfg):
 def get_dataloaders(cfg,dataset):
     
     #prepare for dataset_spliting
+    X = torch.stack([dataset[i][0] for i in range(len(dataset))])
+    Y = torch.stack([dataset[i][1] for i in range(len(dataset))])
     
+    #print some statistics 
+    num_positive = (Y == 1).sum().item()
+    num_negative =  len(dataset) - num_positive
+    print("Percentage of positive samples",num_positive / len(dataset))
+    print("Percentage of negative samples",num_negative / len(dataset))
     
-    X = torch.stack([dataset[i][0] for i in range(len(dataset))]).cpu().numpy()
-    Y = torch.stack([dataset[i][0] for i in range(len(dataset))]).cpu().numpy()
     # Split the dataset
     data_size = len(dataset)
     train_size = int(0.7 * data_size)
     test_val_size = data_size - train_size 
-
-    X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=test_val_size, stratify=Y, random_state=cfg.seed)
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=cfg.seed)
+    x_indices = torch.arange(X.shape[0])
+    #split indices (sklearn cant handle shapes greater than 3 :) ) 
+    train_indices, X_temp, y_train, y_temp = train_test_split(x_indices, Y, test_size=test_val_size, stratify=Y, random_state=cfg.seed)
+    val_indices, test_indices, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=cfg.seed)
 
     #create torch_datasets
-    train_dataset = TensorDataset(torch.Tensor(X_train),torch.Tensor(y_train))
-    val_dataset = TensorDataset(torch.Tensor(X_val),torch.Tensor(y_val))
-    test_dataset = TensorDataset(torch.Tensor(X_test),torch.Tensor(y_test))
+    train_dataset = TensorDataset(torch.index_select(X, 0, train_indices),y_train)
+    val_dataset = TensorDataset(torch.index_select(X, 0, val_indices),y_val)
+    test_dataset = TensorDataset(torch.index_select(X, 0, test_indices),y_test)
 
     # Create DataLoaders for training and validation
     train_loader = DataLoader(train_dataset,batch_size=100, shuffle=True)
@@ -38,7 +43,7 @@ def get_dataloaders(cfg,dataset):
     print("Dataset Size", data_size)
     print("Trainset Size", train_size)
     print("Valset Size", len(val_dataset))
-    print("Valset Size", len(test_dataset))
+    print("Testset Size", len(test_dataset))
     return train_loader, val_loader, test_loader
 
 
