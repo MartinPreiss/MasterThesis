@@ -1,0 +1,36 @@
+program: thesis.ue.train_lstm
+project: Thesis
+method: bayes
+metric:
+  goal: maximize
+  name: f1
+parameters:
+  training_params.learning_rate:
+    max: 0.01
+    min: 0.0005
+    distribution: uniform
+  training_params.epochs:
+    max: 500
+    min: 25
+    distribution: int_uniform
+  pca.use_pca:
+    values: [true, false]  # Use categorical for booleans
+  pca.n_components:
+    values: [50, 100, 150, 200,500,1000]  
+  pca.layer_wise:
+    values: [true, false] 
+  lstm.num_layers:
+    max: 6
+    min: 1
+    distribution: int_uniform  
+  lstm.hidden_size:
+    max: 500
+    min: 25
+    distribution: int_uniform
+
+command:
+  - ${env}
+  - python
+  - -m
+  - ${program}
+  - ${args_no_hyphens}
