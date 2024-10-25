@@ -10,6 +10,7 @@ pandas = "*"
 seaborn = "*"
 accelerate = "*"
 scikit-learn = "*"
+dotmap = "*"
 
 [dev-packages]
 ipykernel = "*"
