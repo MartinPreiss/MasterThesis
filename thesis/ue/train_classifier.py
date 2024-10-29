@@ -6,29 +6,29 @@ import torch.optim as optim
 from thesis.models.neural_net import SimpleClassifier
 from thesis.metrics import calculate_metrics
 from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
-from thesis.utils import print_number_of_parameters, get_device, get_config_and_init_wandb
-
-import wandb
+from thesis.utils import print_number_of_parameters, get_device, init_wandb
+import hydra
+from omegaconf import DictConfig, OmegaConf
 import warnings
+import wandb
 
 from tqdm import tqdm
 
 warnings.filterwarnings("always")
 
-cfg = get_config_and_init_wandb("NN")
-
 device = get_device()
 
 
-def train_classifier(model, train_loader, val_loader, num_layers):
+def train_classifier(cfg,model, train_loader, val_loader, num_layers):
 
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=cfg.training_params.learning_rate)
     epochs = cfg.training_params.epochs
 
+    max_f1 = 0
     for layer_id in tqdm(range(num_layers)):
-        max_acc, max_prec, max_rec, max_f1 = 0, 0, 0, 0
+        acc, prec, rec, f1 = 0, 0, 0, 0
         # training loop
         for epoch in range(epochs):
             running_loss = 0.0
@@ -73,35 +73,36 @@ def train_classifier(model, train_loader, val_loader, num_layers):
             all_preds = torch.where(
                 all_preds >= 0.0, 1.0, 0.0
             )  # Convert logits to binary predictions
-            acc, prec, rec, f1 = calculate_metrics(
+            tmp_acc, tmp_prec, tmp_rec, tmp_f1 = calculate_metrics(
                 preds=all_preds, labels=all_labels
             )
-            if f1 > max_f1:
-                max_prec = prec
-                max_acc = acc
-                max_rec = rec
-                max_f1 = f1
+            if tmp_f1 > f1:
+                prec = tmp_prec
+                acc = tmp_acc
+                rec = tmp_rec
+                f1 = tmp_f1
 
             running_loss /= len(train_loader)
             # print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss:.4f}")
             # wandb.log({"train_loss":running_loss,"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
-
+        max_f1 = f1 if f1 > max_f1 else max_f1
         wandb.log(
             data={
-                "val_acc": max_acc,
-                "val_precision": max_prec,
-                "val_recall": max_rec,
-                "f1": max_f1,
+                "val_acc": acc,
+                "val_precision": prec,
+                "val_recall": rec,
+                "f1": f1,
             },
             step=layer_id + 1,
         )
-
+    wandb.log({"max_f1":max_f1})
     # Save the model checkpoint
     # torch.save(model.state_dict(), "simple_classifier.pth")
 
-
-if __name__ == "__main__":
-
+@hydra.main(config_path="../config", config_name="config")
+def prepare_and_start_training(cfg : DictConfig):
+    
+    init_wandb(cfg,"NN")
     # Load the dataset
     dataset = get_embedding_dataset(cfg)
     
@@ -118,9 +119,13 @@ if __name__ == "__main__":
 
     print_number_of_parameters(model)
 
-    train_classifier(
+    train_classifier(cfg,
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         num_layers=num_layers,
     )
+
+
+if __name__ == "__main__":
+    prepare_and_start_training()
