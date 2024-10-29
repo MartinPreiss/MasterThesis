@@ -31,9 +31,9 @@ def get_dataloaders(cfg,dataset):
     val_indices, test_indices, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=cfg.seed)
 
     #create torch_datasets
-    train_dataset = TensorDataset(torch.index_select(X, 0, train_indices),y_train)
-    val_dataset = TensorDataset(torch.index_select(X, 0, val_indices),y_val)
-    test_dataset = TensorDataset(torch.index_select(X, 0, test_indices),y_test)
+    train_dataset = TensorDataset(torch.index_select(X.cpu(), 0, train_indices.cpu()),y_train)
+    val_dataset = TensorDataset(torch.index_select(X.cpu(), 0, val_indices.cpu()),y_val)
+    test_dataset = TensorDataset(torch.index_select(X.cpu(), 0, test_indices.cpu()),y_test)
 
     # Create DataLoaders for training and validation
     train_loader = DataLoader(train_dataset,batch_size=100, shuffle=True)
