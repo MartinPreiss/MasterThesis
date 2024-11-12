@@ -1,12 +1,18 @@
 import torch 
+from tqdm import tqdm
 from torch.utils.data import Dataset,DataLoader, TensorDataset
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from thesis.utils import get_device
 
 def get_embedding_dataset(cfg):
-    dataset = torch.load(f"/home/knowledgeconflict/home/martin/MasterThesis/data/datasets/embeddings/embedding_{cfg.llm_model_name}_all.pth")   
+    dataset = torch.load(f"/home/knowledgeconflict/home/martin/MasterThesis/data/datasets/embeddings/embedding_{cfg.llm_model_name}_all.pth")#,map_location=torch.device('cpu'))   
     if cfg.pca.use_pca:    
         dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)
+    if  cfg.use_coveig:
+        dataset = CovEigDataset(dataset)
+        
+        
     return dataset
 
 def get_dataloaders(cfg,dataset):
@@ -74,3 +80,29 @@ class PCADataset(Dataset):
     def __getitem__(self, idx):
         
         return self.data[idx], self.labels[idx]
+    
+class CovEigDataset(Dataset):
+    def __init__(self, dataset):
+                
+        coveigs = []
+        labels = []
+        
+        for sample, label in tqdm(dataset):
+            
+            cov = torch.cov(sample)
+            #cov = torch.transpose(sample)#* jd * sample#Σ = Z⊤ · Jd · Z
+            
+            eigenvalues, _ = torch.linalg.eig(cov)
+            
+            coveigs.append(eigenvalues)
+            labels.append(label)
+    
+        self.data = torch.stack(coveigs)
+        self.labels = torch.stack(labels)    
+    
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        
+        return self.data[idx], self.labels[idx]    

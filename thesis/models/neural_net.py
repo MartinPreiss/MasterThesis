@@ -33,3 +33,14 @@ class SimpleClassifier(nn.Module):
         
         x = self.output_layer(x)
         return x
+
+class LRProbe(nn.Module):
+    def __init__(self, d_in):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_in, 1, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x, iid=None):
+        return self.net(x)
