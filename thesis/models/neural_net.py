@@ -44,3 +44,17 @@ class LRProbe(nn.Module):
 
     def forward(self, x, iid=None):
         return self.net(x)
+    
+    
+class AllLayerClassifier(nn.Module):
+    def __init__(self, embedding_size, num_llm_layers):
+        super().__init__()
+        
+        self.layer_classifiers = nn.Conv1d(num_llm_layers,num_llm_layers,embedding_size)
+        self.activation = nn.ReLU()
+        self.aggregate = nn.Linear(num_llm_layers,1)
+
+    def forward(self, x):
+        
+        return self.aggregate(self.activation(self.layer_classifiers(x)).squeeze(dim=-1))
+    
