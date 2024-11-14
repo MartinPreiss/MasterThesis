@@ -1,7 +1,40 @@
 {
 	"folders": [
-		{
-			"path": ".."
+	  {
+		"path": ".."
+	  }
+	],
+	"settings": {
+	  // formatting & linting
+	  "python.analysis.typeCheckingMode": "basic",
+	  "python.analysis.indexing": true,
+	  "[python]": {
+		"editor.codeActionsOnSave": {
+		  "source.organizeImports": "explicit"
 		}
-	]
-}
+	  },
+	  // testing
+	  "python.testing.pytestArgs": [
+		"test"
+	  ],
+	  "python.testing.unittestEnabled": false,
+	  "python.testing.pytestEnabled": true,
+	  // jupyter
+	  "jupyter.notebookFileRoot": "${workspaceFolder}",
+	  "cSpell.words": [
+		"dotenv",
+		"MoritzLaurer",
+		"openai",
+		"softmax",
+		"xnli"
+	  ],
+	},
+	
+	"extensions": {
+	  "recommendations": [
+		"rioj7.command-variable",
+		"ms-python.python",
+		"ms-toolsai.jupyter",
+	  ]
+	}
+  }

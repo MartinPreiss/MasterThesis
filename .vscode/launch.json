@@ -8,31 +8,10 @@
         "request": "launch",
         "program": "${file}",
         "console": "integratedTerminal",
+        "pythonPath": "/home/martin.preiss/.local/share/virtualenvs/MasterThesis-uWeKjD6I/bin/python",
         "env": {
-          "PYTHONPATH": "${workspaceFolder}",
-          "CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
-        }
-      },
-      {
-        "name": "CONFIG CUDA:Debug Create dataset",
-        "type": "python",
-        "request": "launch",
-        "module": "thesis.ue.create_dataset",
-        "console": "integratedTerminal",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}",
-          "CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
-        }
-      },
-      {
-        "name": "CONFIG CUDA:Debug Train Classifier",
-        "type": "python",
-        "request": "launch",
-        "module": "thesis.ue.train_classifier",
-        "console": "integratedTerminal",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}",
-          "CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
+          "PYTHONPATH": "${workspaceFolder}"
+          //"CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
         }
       }
     ]

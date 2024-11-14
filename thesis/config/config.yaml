@@ -8,7 +8,7 @@ training_params:
 
 #dataset
 pca:
-  use_pca: True
+  use_pca: False
   n_components: 100
   layer_wise: False
 

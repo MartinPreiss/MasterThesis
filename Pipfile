@@ -12,6 +12,8 @@ accelerate = "*"
 scikit-learn = "*"
 dotmap = "*"
 hydra-core = "*"
+ipykernel = "*"
+wandb = "*"
 
 [dev-packages]
 ipykernel = "*"
