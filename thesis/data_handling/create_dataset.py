@@ -56,7 +56,6 @@ def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_o
 def create_dataset(cfg):
     
     df = get_prompt_df(cfg)
-    df = df.head(5)
     df_original_prompt = df["original_prompt"]
     df_fake_prompt = df["transformed_prompt"]
     

@@ -11,6 +11,7 @@ def get_gemma_prompt(cot=False):
     return prompt 
 
 def get_df(cfg):
+    #needs to be columns=[question,answer,fake_answer]
     if cfg.benchmark.name == "refact":
         return get_refact_df(cfg)
     elif cfg.benchmark.name == "truthfulqa":
@@ -19,7 +20,21 @@ def get_df(cfg):
     raise(Exception("Dataset not found with name:",cfg.benchmark.name ))
     
 def get_truthfulqa_df(cfg):
-    raise(Exception("not implemented"))
+    path= get_absolute_path(cfg.benchmark.path)
+    df = pd.read_csv(path)
+    df = df[['Question', 'Best Answer','Incorrect Answers']]
+    
+    df = df.rename(columns={
+    "Question": "question",
+    "Best Answer": "answer",
+    "Incorrect Answers": "fake_answer"
+})
+    
+    df["fake_answer"] = df.apply(lambda row: row["fake_answer"][:row["fake_answer"].find(";")], axis=1 )
+    
+    return df
+    
+    
     
     
 def get_refact_df(cfg):
@@ -28,10 +43,14 @@ def get_refact_df(cfg):
     if cfg.benchmark.tag_type:
         df = df[df["tag_type"] == cfg.benchmark.tag_type]
     df = df.dropna()
+    
+    df = df.rename(columns={
+    "transformed_answer": "fake_answer"
+    })
     return df
 
 def get_prompt(cfg):
-    if cfg.benchmark.prompt_name == "simple_prompt":
+    if cfg.task.prompt_name == "simple_prompt":
         return simple_prompt
     raise(Exception("Prompt Name for Benchmark not found"))
 
@@ -40,5 +59,5 @@ def get_prompt_df(cfg):
     df = get_df(cfg)
     prompt = get_prompt(cfg)
     df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
-    df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["transformed_answer"]), axis=1)
+    df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["fake_answer"]), axis=1)
     return df[["transformed_prompt","original_prompt"]]

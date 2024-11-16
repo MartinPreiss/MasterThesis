@@ -1,4 +1,4 @@
 # @package _group_
 
 name: truthfulqa
-path: data/TruthfulQA.csv
+path: /data/TruthfulQA.csv
