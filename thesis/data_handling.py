@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from thesis.utils import get_device
 
 def get_embedding_dataset(cfg):
-    dataset = torch.load(f"/home/knowledgeconflict/home/martin/MasterThesis/data/datasets/embeddings/embedding_{cfg.llm_model_name}_all.pth")#,map_location=torch.device('cpu'))   
+    dataset = torch.load(f"./data/datasets/embeddings/embedding_{cfg.llm_model_name}_all.pth")#,map_location=torch.device('cpu'))   
     if cfg.pca.use_pca:    
         dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)
     if  cfg.use_coveig:
