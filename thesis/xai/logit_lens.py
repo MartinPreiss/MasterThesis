@@ -4,9 +4,9 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
 )
-from thesis.utils import get_prompt_df, print_cuda_info,clear_unused_gpu_memory, clear_all__gpu_memory,write_pickle
-
-from thesis.xai.hook import Hook
+from thesis.utils import  print_cuda_info,clear_unused_gpu_memory, clear_all__gpu_memory,write_pickle
+from thesis.data_handling.benchmark import get_prompt_df
+from thesis.xai.hook import get_layer_hooks
 from tqdm import tqdm
 
 
@@ -20,16 +20,6 @@ def logit_lens(model, hooks):
             #layer_output = torch.nn.functional.softmax(layer_output,dim=1)
             layer_outputs.append(layer_output)  
     return layer_outputs
-
-def get_hooks(model,layer_ids=None):
-    if not layer_ids:
-        layer_ids = range(len(model.model.layers))
-    hooks = []
-    for id,layer in enumerate(model.model.layers): 
-        if id in layer_ids:
-            hooks.append(Hook(layer))
-
-    return hooks
 
 def get_label_ids(tokenizer):    
     true_words = ["true","True","TRUE"]
@@ -123,7 +113,7 @@ if __name__ == "__main__":
     
     
     #hook layers
-    hooks = get_hooks(model)
+    hooks = get_layer_hooks(model)
 
     save_layer_outputs(df_original_prompt,model,tokenizer,hooks,output_path="/home/knowledgeconflict/home/martin/MasterThesis/data/logit_lens/original/")
     save_layer_outputs(df_fake_prompt,model,tokenizer,hooks,output_path="/home/knowledgeconflict/home/martin/MasterThesis/data/logit_lens/fake/")

@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 import wandb
 
 from thesis.utils import get_config_and_init_wandb
-from thesis.data_handling import get_embedding_dataset
+from thesis.data_handling.data_handling import get_embedding_dataset
 from thesis.metrics import calculate_metrics
 
 cfg  = get_config_and_init_wandb(name="Log_Reg")
@@ -45,4 +45,5 @@ for layer_id in range(num_layers):
     log_reg.fit(X_train[:,layer_id,:], y_train)
     
     acc, prec, rec, f1 =  calculate_metrics(log_reg.predict(X_test[:,layer_id,:]),y_test)
-    wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1},step=layer_id+1)
+    if cfg.use_wandb:
+        wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1},step=layer_id+1)

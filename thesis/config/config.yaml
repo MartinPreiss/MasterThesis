@@ -1,9 +1,12 @@
-llm_model_name: "gemma-2-9b-it"
-seed: 42
+defaults:
+  - benchmark: refact
+  - llm: gemma_small
+  - task: train_classifier
 
-training_params:
-  learning_rate: 0.001
-  epochs: 100
+#dataset
+
+use_wandb: False
+seed: 42
 
 
 #dataset
@@ -14,9 +17,9 @@ pca:
 
 use_coveig: False
 
-nn:
-  num_layers: 3
 
-lstm:
-  hidden_size: 50
-  num_layers: 3
+
+
+hydra:
+  run:
+    dir: .

@@ -5,7 +5,7 @@ import torch.optim as optim
 
 from thesis.models.neural_net import SimpleClassifier,AllLayerClassifier
 from thesis.metrics import calculate_metrics
-from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
+from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
 from thesis.utils import print_number_of_parameters, get_device, init_wandb
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -47,7 +47,8 @@ def train_classifier(cfg,model, train_loader, val_loader, num_layers):
         all_preds = []
         all_labels = []
         val_loss = 0
-        wandb.log({"train_loss":running_loss})
+        if cfg.use_wandb:
+            wandb.log({"train_loss":running_loss})
         for i, data in enumerate(val_loader, 0):
             with torch.no_grad():
                 inputs, labels = data
@@ -69,9 +70,11 @@ def train_classifier(cfg,model, train_loader, val_loader, num_layers):
         )
         running_loss /= len(train_loader)
         # print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss:.4f}")
-        # wandb.log({"train_loss":running_loss,"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
+        #if cfg.use_wandb:
+            #wandb.log({"train_loss":running_loss,"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
         max_f1 = f1 if f1 > max_f1 else max_f1
-        wandb.log(
+        if cfg.use_wandb:
+            wandb.log(
             data={
                 "val_loss":val_loss,
                 "val_acc": acc,
@@ -80,14 +83,15 @@ def train_classifier(cfg,model, train_loader, val_loader, num_layers):
                 "f1": f1,
             }
         )
-    wandb.log({"max_f1":max_f1})
+    if cfg.use_wandb:
+        wandb.log({"max_f1":max_f1})
     # Save the model checkpoint
     # torch.save(model.state_dict(), "simple_classifier.pth")
 
 @hydra.main(config_path="../config", config_name="config")
 def prepare_and_start_training(cfg : DictConfig):
     
-    init_wandb(cfg,"EnsembleClassifier")
+    init_wandb(cfg)
     # Load the dataset
     dataset = get_embedding_dataset(cfg)
     

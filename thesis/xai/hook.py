@@ -1,6 +1,15 @@
 import torch
 from torch import nn
 
+def get_layer_hooks(model,layer_ids=None):
+    if not layer_ids:
+        layer_ids = range(len(model.model.layers))
+    hooks = []
+    for id,layer in enumerate(model.model.layers): 
+        if id in layer_ids:
+            hooks.append(Hook(layer))
+
+    return hooks
 
 class Hook:
     """Attaches to a module and records its activations and gradients."""

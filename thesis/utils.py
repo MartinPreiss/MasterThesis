@@ -3,37 +3,11 @@ import gc
 import torch 
 import os
 import pickle
-
 import wandb
-import yaml
-from dotmap import DotMap
 
-from thesis.config import REFACT_PATH
-from thesis.prompts import system_prompt_valid_invalid, user_prompt_valid_invalid, simple_prompt
-
-def get_gemma_prompt(cot=False):
-    if not cot: 
-        prompt = system_prompt_valid_invalid.split("Evaluation Process:")[0].strip() + user_prompt_valid_invalid.split("Thought process:")[0].strip()
-        print(prompt)
-    else:
-        prompt =system_prompt_valid_invalid + user_prompt_valid_invalid
-        
-    return prompt 
-
-def get_df(tag_type=None):
-    path= REFACT_PATH
-    df = pd.read_json(path, lines=True, orient="records")
-    if tag_type:
-        df = df[df["tag_type"] == tag_type]
-    df = df.dropna()
-    return df
-
-def get_prompt_df():
-    df = get_df()
-    prompt = simple_prompt
-    df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
-    df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["transformed_answer"]), axis=1)
-    return df[["transformed_prompt","original_prompt"]]
+def get_absolute_path(relative_path:str):
+    basePath = os.path.dirname(os.path.abspath(__file__))
+    return basePath + relative_path
 
 def print_cuda_info():
 
@@ -86,7 +60,7 @@ def print_number_of_parameters(model):
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def init_wandb(cfg,name=None):
-    if name: 
-        name = name+cfg.llm_model_name
-    wandb.init(project="thesis",name=name,config=dict(cfg))
+
+def init_wandb(cfg):
+    if cfg.use_wandb:
+        wandb.init(project="thesis",name=cfg.task.name,config=dict(cfg))

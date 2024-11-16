@@ -4,9 +4,10 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
 )
-from thesis.utils import get_prompt_df, print_cuda_info,clear_unused_gpu_memory, clear_all__gpu_memory,write_pickle
 
-from thesis.xai.logit_lens import get_hooks,get_label_ids
+from thesis.data_handling.benchmark import get_prompt_df
+
+from thesis.xai.hook import get_layer_hooks
 
 from torch.utils.data import TensorDataset, ConcatDataset
 
@@ -22,7 +23,6 @@ def get_embeddings(hooks):
     return torch.cat(embeddings)
 
 def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_output:str):
-    #true_ids, false_ids = get_label_ids(tokenizer)
     
     sample_embeddings = []
     labels = []
@@ -31,7 +31,7 @@ def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_o
         input_ids = tokenizer(prompt, return_tensors="pt").to('cuda')
         #forward pass and final output
         with torch.no_grad():
-            output = model.generate(**input_ids,max_length=len(input_ids[0])+1, return_dict_in_generate=True, output_scores=True,temperature=0.1)
+            output = model.generate(**input_ids,max_length=len(input_ids[0])+1, return_dict_in_generate=True, output_scores=True)
 
         # Convert the predicted token IDs to text
         decoded_text = tokenizer.decode(output["sequences"][0][-1])
@@ -52,25 +52,26 @@ def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_o
         sample_embeddings.append(embeddings)
     
     return TensorDataset(torch.stack(sample_embeddings),torch.Tensor(labels).unsqueeze(1))
-if __name__ == "__main__":    
+
+def create_dataset(cfg):
     
-    df = get_prompt_df()
+    df = get_prompt_df(cfg)
+    df = df.head(5)
     df_original_prompt = df["original_prompt"]
     df_fake_prompt = df["transformed_prompt"]
     
-    #model_id = 'meta-llama/Meta-Llama-3-8B-Instruct'
-    model_id = 'google/gemma-2-27b-it'
+    model_id = cfg.llm.name
     tokenizer = AutoTokenizer.from_pretrained(model_id,device_map="auto")
     model = AutoModelForCausalLM.from_pretrained(model_id, output_attentions=True,device_map="auto")
     print(model)
     print(len(model.model.layers))
     
     #hook layers
-    hooks = get_hooks(model)
+    hooks = get_layer_hooks(model)
     
     original_dataset = get_embedding_dataset(df_original_prompt,model,tokenizer,hooks,true_output="TRUE",wrong_output="FALSE")
     transformed_dataset = get_embedding_dataset(df_fake_prompt,model,tokenizer,hooks,true_output="FALSE",wrong_output="TRUE")
     
     combined_dataset = ConcatDataset([original_dataset, transformed_dataset])
     model_name = model_id[model_id.rfind("/")+1:]
-    torch.save(combined_dataset,f"./data/datasets/embeddings/embedding_{model_name}_all.pth")
+    torch.save(combined_dataset,f"thesis/data/datasets/embeddings/embedding_{model_name}_{cfg.benchmark.name}.pth")

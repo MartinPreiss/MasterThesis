@@ -2,15 +2,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Subset
-
 from thesis.models.lstm import LSTMModel
 from thesis.metrics import calculate_metrics
-from thesis.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
+from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders
 from thesis.utils import print_number_of_parameters,get_device, init_wandb
-import hydra
-from omegaconf import DictConfig, OmegaConf
-
 import wandb
 import warnings
 
@@ -52,7 +47,8 @@ def train_classifier(cfg, model, train_loader, val_loader,num_layers):
             
         running_loss /= len(train_loader)
         # print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss:.4f}")
-        wandb.log({"train_loss":running_loss})
+        if cfg.use_wandb:
+            wandb.log({"train_loss":running_loss})
 
         # validation
         all_preds = []
@@ -79,18 +75,19 @@ def train_classifier(cfg, model, train_loader, val_loader,num_layers):
 
         #for layer_id in range(num_layers):
         acc, prec, rec, f1 = calculate_metrics(preds=all_preds, labels=all_labels)
-        wandb.log(data={"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
+        if cfg.use_wandb:
+            wandb.log(data={"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
         # Save the model checkpoint
         # torch.save(model.state_dict(), "simple_classifier.pth")
         max_f1 = f1 if f1>max_f1 else max_f1
-    wandb.log({"max_f1":max_f1})
-
-@hydra.main(config_path="../config", config_name="config")
+    if cfg.use_wandb:
+        wandb.log({"max_f1":max_f1})
+    
 def prepare_and_start_training(cfg : DictConfig):
     
     
     # start a new wandb run to track this script
-    init_wandb(cfg,name="LSTM")
+    init_wandb(cfg)
 
     # Load the dataset
     dataset = get_embedding_dataset(cfg)

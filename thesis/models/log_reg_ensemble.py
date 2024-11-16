@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import wandb
 
-from thesis.data_handling import get_embedding_dataset
+from thesis.data_handling.data_handling import get_embedding_dataset
 from thesis.metrics import calculate_metrics
 from thesis.utils import init_wandb
 
@@ -37,7 +37,7 @@ class Log_Reg_Ensemble():
 @hydra.main(config_path="../config", config_name="config")
 def prepare_and_start_training(cfg : DictConfig):
     
-    init_wandb(cfg,name="LogRegEnsembleStarLayer21")
+    init_wandb(cfg)
     dataset = get_embedding_dataset(cfg)
     
     print(len(dataset))
@@ -68,7 +68,8 @@ def prepare_and_start_training(cfg : DictConfig):
 
     log_reg.fit(X_train, y_train)
     acc, prec, rec, f1 =  calculate_metrics(log_reg.predict(X_test),y_test)
-    wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1})
+    if cfg.use_wandb:
+        wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1})
 
 if __name__ == "__main__":
     prepare_and_start_training()
