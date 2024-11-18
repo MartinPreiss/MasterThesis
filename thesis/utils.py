@@ -62,5 +62,11 @@ def get_device():
 
 
 def init_wandb(cfg):
-    if cfg.use_wandb:
-        wandb.init(project="thesis",name=cfg.task.name,config=dict(cfg))
+    if cfg.wandb.use_wandb:
+        
+        wandb.init(
+            project=cfg.wandb.project_name + "_" + cfg.benchmark.name if cfg.wandb.project_name != "None" else None,
+            name=cfg.task.name + cfg.wandb.name if cfg.wandb.name else cfg.task.name, 
+            entity = "martinpreiss",
+            group=cfg.wandb.group_name if cfg.wandb.group_name != "None" else None,
+            config=dict(cfg)) 

@@ -45,5 +45,5 @@ for layer_id in range(num_layers):
     log_reg.fit(X_train[:,layer_id,:], y_train)
     
     acc, prec, rec, f1 =  calculate_metrics(log_reg.predict(X_test[:,layer_id,:]),y_test)
-    if cfg.use_wandb:
+    if cfg.wandb.use_wandb:
         wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1},step=layer_id+1)

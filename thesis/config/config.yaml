@@ -3,9 +3,16 @@ defaults:
   - llm: gemma_small
   - task: ???
 
+
+wandb:
+  use_wandb: False
+  project_name: thesis
+  group_name: None
+  name: 
+  
+
 #dataset
 
-use_wandb: False
 seed: 42
 
 

@@ -68,7 +68,7 @@ def prepare_and_start_training(cfg : DictConfig):
 
     log_reg.fit(X_train, y_train)
     acc, prec, rec, f1 =  calculate_metrics(log_reg.predict(X_test),y_test)
-    if cfg.use_wandb:
+    if cfg.wandb.use_wandb:
         wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1})
 
 if __name__ == "__main__":
