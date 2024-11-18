@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from thesis.models.neural_net import SimpleClassifier,AllLayerClassifier
+from thesis.models.neural_net import AllLayerClassifier
 from thesis.metrics import calculate_metrics
-from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders, PCADataset
+from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders
 from thesis.utils import print_number_of_parameters, get_device, init_wandb
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -19,7 +19,7 @@ warnings.filterwarnings("always")
 device = get_device()
 
 
-def train_classifier(cfg,model, train_loader, val_loader, num_layers):
+def train_classifier(cfg,model, train_loader, val_loader):
 
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)

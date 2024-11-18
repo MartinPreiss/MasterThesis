@@ -9,13 +9,14 @@ from thesis.utils import print_number_of_parameters,get_device, init_wandb
 import wandb
 import warnings
 
+from omegaconf import DictConfig
 from tqdm import tqdm
 
 warnings.filterwarnings("always")
 device = get_device()
 
 
-def train_classifier(cfg, model, train_loader, val_loader,num_layers):
+def train(cfg, model, train_loader, val_loader,num_layers):
 
     start = 0 #num_layers // 2
     end = num_layers - 0 
@@ -23,11 +24,11 @@ def train_classifier(cfg, model, train_loader, val_loader,num_layers):
     num_layers = len(range(start,end))
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=cfg.training_params.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=cfg.task.training_params.learning_rate)
     
     # training loop
     max_f1 = 0
-    for epoch in tqdm(range(cfg.training_params.epochs)):
+    for epoch in tqdm(range(cfg.task.training_params.epochs)):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data 
@@ -83,7 +84,7 @@ def train_classifier(cfg, model, train_loader, val_loader,num_layers):
     if cfg.wandb.use_wandb:
         wandb.log({"max_f1":max_f1})
     
-def prepare_and_start_training(cfg : DictConfig):
+def train_lstm(cfg : DictConfig):
     
     
     # start a new wandb run to track this script
@@ -99,11 +100,8 @@ def prepare_and_start_training(cfg : DictConfig):
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
     print("Embedding Size", input_size, "Number of Layers", num_layers)
 
-    model = LSTMModel(input_size,hidden_size=cfg.lstm.hidden_size,num_layers=cfg.lstm.num_layers).to(device)
+    model = LSTMModel(input_size,hidden_size=cfg.task.lstm.hidden_size,num_layers=cfg.task.lstm.num_layers).to(device)
 
     print_number_of_parameters(model)
 
-    train_classifier(cfg=cfg,model=model,train_loader=train_loader,val_loader=val_loader,num_layers = num_layers)
-
-if __name__ == "__main__":
-    prepare_and_start_training()
+    train(cfg=cfg,model=model,train_loader=train_loader,val_loader=val_loader,num_layers = num_layers)
