@@ -1,0 +1,11 @@
+name: train_all_layer_classifier
+
+#method
+
+nn:
+  num_layers: 3
+  
+training_params:
+  learning_rate: 0.001
+  epochs: 100
+  weight_decay: 0.01

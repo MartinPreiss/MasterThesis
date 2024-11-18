@@ -19,15 +19,15 @@ warnings.filterwarnings("always")
 device = get_device()
 
 
-def train_classifier(cfg,model, train_loader, val_loader):
+def train(cfg,model, train_loader, val_loader):
 
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=cfg.training_params.learning_rate,weight_decay=cfg.training_params.weight_decay)
-    epochs = cfg.training_params.epochs
+    optimizer = optim.Adam(model.parameters(), lr=cfg.task.training_params.learning_rate,weight_decay=cfg.task.training_params.weight_decay)
+    epochs = cfg.task.training_params.epochs
 
     max_f1 = 0
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             inputs, labels = (
@@ -88,8 +88,7 @@ def train_classifier(cfg,model, train_loader, val_loader):
     # Save the model checkpoint
     # torch.save(model.state_dict(), "simple_classifier.pth")
 
-@hydra.main(config_path="../config", config_name="config")
-def prepare_and_start_training(cfg : DictConfig):
+def train_all_layer_classifier(cfg : DictConfig):
     
     init_wandb(cfg)
     # Load the dataset
@@ -108,13 +107,8 @@ def prepare_and_start_training(cfg : DictConfig):
 
     print_number_of_parameters(model)
 
-    train_classifier(cfg,
+    train(cfg,
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        num_layers=num_layers,
     )
-
-
-if __name__ == "__main__":
-    prepare_and_start_training()
