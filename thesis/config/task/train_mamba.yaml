@@ -1,0 +1,10 @@
+name: train_mamba
+
+#method
+model:
+  num_hidden_layers: 1
+
+training_params:
+  learning_rate: 0.001
+  epochs: 100
+  weight_decay: 0.1
