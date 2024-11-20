@@ -66,12 +66,13 @@ def get_dataloaders(cfg,dataset):
     test_val_size = data_size - train_size 
     x_indices = list(range(X.shape[0]))
     #split indices (sklearn cant handle shapes greater than 3 :) ) 
+    
+    len_first_half = len(x_indices)//2
     if cfg.benchmark.name == "refact":
         x_indices = get_refact_split(cfg,Y,test_val_size)
         train_indices, val_indices, test_indices = x_indices
     else:
         #first half
-        len_first_half = len(x_indices)//2
         indices_first_half = x_indices[:len_first_half]
         Y_first_half = Y[:len_first_half]
         train_indices, X_temp, _, y_temp = train_test_split(indices_first_half, Y_first_half, test_size=test_val_size, stratify=Y_first_half, random_state=cfg.seed)

@@ -10,8 +10,8 @@
         "console": "integratedTerminal",
         "pythonPath": "/home/martin.preiss/.local/share/virtualenvs/MasterThesis-uWeKjD6I/bin/python",
         "env": {
-          "PYTHONPATH": "${workspaceFolder}"
-          //"CUDA_VISIBLE_DEVICES": "3"  // Removed the comment
+          "PYTHONPATH": "${workspaceFolder}",
+          "CUDA_VISIBLE_DEVICES": "2"  // Removed the comment
         }
       }
     ]
