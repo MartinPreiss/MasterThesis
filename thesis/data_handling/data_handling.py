@@ -117,6 +117,14 @@ def get_dataloaders(cfg,dataset):
     print_label_data(y_test,"y_test")
     return train_loader, val_loader, test_loader
 
+def get_dataloader_for_layer(data_loader,layer_id,batch_size):
+    
+    
+        all_data = torch.cat([data[0][:, layer_id, :] for data in data_loader],dim=0)
+        labels = torch.cat([data[1] for data in data_loader],dim=0)
+        
+        return DataLoader(TensorDataset(all_data,labels),batch_size=batch_size)
+
 
 class PCADataset(Dataset):
     def __init__(self, dataset, n_components=100,layer_wise=False):
