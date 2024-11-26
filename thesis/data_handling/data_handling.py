@@ -101,9 +101,10 @@ def get_dataloaders(cfg,dataset):
     test_dataset = TensorDataset(torch.index_select(X.cpu(), 0, test_indices.cpu()),y_test)
 
     # Create DataLoaders for training and validation
-    train_loader = DataLoader(train_dataset,batch_size=100, shuffle=True)
-    val_loader = DataLoader(val_dataset,batch_size=100, shuffle=False)
-    test_loader = DataLoader(test_dataset,batch_size=100, shuffle=False)
+    batch_size = cfg.task.training_params.batch_size
+    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
     
     #print some statistics 
     print("Dataset Size", data_size)

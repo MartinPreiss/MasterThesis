@@ -16,7 +16,8 @@ def get_df(cfg):
         return get_refact_df(cfg)
     elif cfg.benchmark.name == "truthfulqa":
         return get_truthfulqa_df(cfg)
-    
+    elif cfg.benchmark.name == "haluleval":
+        return get_haluleval_df(cfg)
     raise(Exception("Dataset not found with name:",cfg.benchmark.name ))
     
 def get_truthfulqa_df(cfg):
@@ -27,14 +28,25 @@ def get_truthfulqa_df(cfg):
     df = df.rename(columns={
     "Question": "question",
     "Best Answer": "answer",
-    "Incorrect Answers": "fake_answer"
-})
+    "Incorrect Answers": "fake_answer"})
     
     df["fake_answer"] = df.apply(lambda row: row["fake_answer"][:row["fake_answer"].find(";")], axis=1 )
     
     return df
     
+def get_haluleval_df(cfg):
+    path= get_absolute_path(cfg.benchmark.path)
+    df = pd.read_json(str(path), lines=True, orient="records")
     
+    df = df[['question', 'right_answer','hallucinated_answer']]
+    
+    df = df.rename(columns={
+    "question": "question",
+    "right_answer": "answer",
+    "hallucinated_answer": "fake_answer"})
+    
+    
+    return df   
     
     
 def get_refact_df(cfg):
