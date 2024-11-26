@@ -50,8 +50,8 @@ def print_label_data(y, split_type="total"):
     
     num_positive = (y == 1).sum().item()
     num_negative =  len(y) - num_positive
-    print(f"Percentage of {split_type} positive samples",num_positive / len(y))
-    print(f"Percentage of {split_type} negative samples",num_negative / len(y))
+    print(f"Percentage of {split_type} positive samples {num_positive / len(y):.2f}")
+    print(f"Percentage of {split_type} negative samples {num_negative / len(y):.2f}")
     
 
 def get_dataloaders(cfg,dataset):
