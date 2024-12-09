@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from thesis.models.neural_net import SimpleClassifier
+from thesis.models.model_handling import get_model
 from thesis.metrics import calculate_metrics
 from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders
 from thesis.utils import print_number_of_parameters, get_device, init_wandb
@@ -103,7 +103,7 @@ def train(cfg,model, train_loader, val_loader, num_layers):
     # Save the model checkpoint
     # torch.save(model.state_dict(), "simple_classifier.pth")
 
-def train_classifier_old(cfg : DictConfig):
+def continue_learning(cfg : DictConfig):
 
     init_wandb(cfg)
     # Load the dataset
@@ -112,11 +112,11 @@ def train_classifier_old(cfg : DictConfig):
     # dataset = Subset(dataset,range(10))
     train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
 
-    input_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
+    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
-    print("Embedding Size", input_size, "Number of Layers", num_layers)
+    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
 
-    model = SimpleClassifier(input_size, num_layers=cfg.task.nn.num_layers).to(
+    model = get_model(embedding_size, num_layers=cfg.task.nn.num_layers).to(
         device
     )
 

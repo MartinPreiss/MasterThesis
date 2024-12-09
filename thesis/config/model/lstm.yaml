@@ -1,0 +1,4 @@
+name: lstm
+
+hidden_size: 50
+num_layers: 3

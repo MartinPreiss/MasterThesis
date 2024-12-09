@@ -27,12 +27,15 @@ class LSTMModel(nn.Module):
         # Initialize fully connected layer
         nn.init.xavier_uniform_(self.fc.weight)  # Xavier initialization for the FC layer
 
-    def forward(self, x):
+    def forward(self, x, return_encoded_space=False):
         # Forward propagate LSTM
         out, _ = self.lstm(x) # h_t's, (h_n, c_n) 
         #out has shape of [batch,sequence_length,hidden_size]
+        encoded_space = out[:,-1,:]
             
-        # Pass through fully connected layer
-        out = self.fc(out[:,-1,:])
+        # Pass through classifier
+        result = self.fc(encoded_space)
+        if return_encoded_space:
+            return out, encoded_space
         
-        return out
+        return out, None

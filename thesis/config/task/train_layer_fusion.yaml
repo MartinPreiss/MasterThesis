@@ -1,0 +1,11 @@
+name: train_layer_fusion 
+
+#method 
+training_params:
+  learning_rate: 0.001
+  epochs: 100
+  batch_size: 100
+  weight_decay: 0.01
+  
+  use_contrastive_loss: True
+

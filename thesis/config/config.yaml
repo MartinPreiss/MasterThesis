@@ -1,6 +1,7 @@
 defaults:
   - benchmark: refact
   - llm: gemma_small
+  - model: layer_fusion 
   - task: ???
 
 

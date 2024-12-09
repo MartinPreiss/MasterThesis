@@ -1,8 +1,4 @@
-name: train_lstm
-
-lstm:
-  hidden_size: 50
-  num_layers: 3
+name: train_per_layer
 
 training_params:
   learning_rate: 0.001

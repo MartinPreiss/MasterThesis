@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-class SimpleClassifier(nn.Module):
+class MLP(nn.Module):
     def __init__(self, input_size, num_layers=3):
-        super(SimpleClassifier, self).__init__()
+        super(MLP, self).__init__()
         
         # List to hold the layers
         self.layers = nn.ModuleList()
@@ -55,9 +55,12 @@ class AllLayerClassifier(nn.Module):
         self.activation = nn.ReLU()
         self.aggregate = nn.Linear(num_llm_layers,1)
 
-    def forward(self, x):
+    def forward(self, x, return_encoded_space=False):
         
-        return self.aggregate(self.activation(self.layer_classifiers(x)).squeeze(dim=-1))
+        result =  self.aggregate(self.activation(self.layer_classifiers(x)).squeeze(dim=-1))
+        if return_encoded_space:
+            raise Exception("Not implemented")
+        return result, None
 
 
 
@@ -68,10 +71,13 @@ class LayerFusion(nn.Module):
         self.activation = nn.ReLU()
         self.classifier = nn.Linear(embedding_size,1)
 
-    def forward(self, x):
+    def forward(self, x,return_encoded_space=False):
         weights = F.softmax(self.gating(x),dim=-2)
-        result = self.classifier(torch.sum(weights*x,dim=1))
-        return result
+        encoded_space = torch.sum(weights*x,dim=1)
+        result = self.classifier(encoded_space)
+        if return_encoded_space:
+            return result,encoded_space
+        return result, None
 
 if __name__ == "__main__":
     # Example usage

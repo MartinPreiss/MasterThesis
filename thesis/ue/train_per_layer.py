@@ -3,12 +3,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from thesis.models.neural_net import AllLayerClassifier
+from thesis.models.model_handling import get_model
 from thesis.metrics import calculate_metrics
-from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders
+from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders, get_dataloader_for_layer
 from thesis.utils import print_number_of_parameters, get_device, init_wandb
-import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import warnings
 import wandb
 
@@ -23,13 +22,14 @@ def train(cfg,model, train_loader, val_loader):
 
     # Loss and optimizer
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=cfg.task.training_params.learning_rate,weight_decay=cfg.task.training_params.weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr=cfg.task.training_params.learning_rate)
     epochs = cfg.task.training_params.epochs
 
-    max_f1 = 0
-    for epoch in tqdm(range(epochs)):
+    acc, prec, rec, f1 = 0, 0, 0, 0
+    # training loop
+    for epoch in range(epochs):
         running_loss = 0.0
-        for i, data in enumerate(train_loader, 0):
+        for  data in train_loader:
             inputs, labels = (
                 data  # Assuming your dataset returns input features and labels# Move inputs and labels to the device (CPU or GPU)
             )
@@ -43,15 +43,11 @@ def train(cfg,model, train_loader, val_loader):
             optimizer.step()
             # Log the loss
             running_loss += loss.item()
-        
-        if cfg.wandb.use_wandb:
-            wandb.log({"train_loss":running_loss})
-            
         # validation
         all_preds = []
         all_labels = []
         val_loss = 0
-        for i, data in enumerate(val_loader, 0):
+        for data in val_loader:
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
@@ -67,29 +63,19 @@ def train(cfg,model, train_loader, val_loader):
         all_preds = torch.where(
             all_preds >= 0.0, 1.0, 0.0
         )  # Convert logits to binary predictions
-        acc, prec, rec, f1 = calculate_metrics(
+        tmp_acc, tmp_prec, tmp_rec, tmp_f1 = calculate_metrics(
             preds=all_preds, labels=all_labels
         )
+        if tmp_f1 > f1:
+            prec = tmp_prec
+            acc = tmp_acc
+            rec = tmp_rec
+            f1 = tmp_f1
         running_loss /= len(train_loader)
-        
-        max_f1 = f1 if f1 > max_f1 else max_f1
-        if cfg.wandb.use_wandb:
-            wandb.log(
-            data={
-                "val_loss":val_loss,
-                "val_acc": acc,
-                "val_precision": prec,
-                "val_recall": rec,
-                "f1": f1,
-            }
-        )
-    if cfg.wandb.use_wandb:
-        wandb.log({"max_f1":max_f1})
-        
-    # Save the model checkpoint
-    # torch.save(model.state_dict(), "simple_classifier.pth")
+    
+    return acc,f1,prec,rec
 
-def train_all_layer_classifier(cfg : DictConfig):
+def train_per_layer(cfg : DictConfig):
     
     init_wandb(cfg)
     # Load the dataset
@@ -98,18 +84,37 @@ def train_all_layer_classifier(cfg : DictConfig):
     # dataset = Subset(dataset,range(10))
     train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
 
-    input_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
+    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
-    print("Embedding Size", input_size, "Number of Layers", num_layers)
+    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
 
-    model = AllLayerClassifier(input_size, num_llm_layers=num_layers).to(
+    max_f1 = 0
+    batch_size = cfg.task.training_params.batch_size
+    for layer_id in tqdm(range(num_layers)):
+        
+        tmp_train_loader = get_dataloader_for_layer(train_loader,layer_id,batch_size) 
+        tmp_val_loader =  get_dataloader_for_layer(val_loader,layer_id,batch_size) 
+        
+        model = get_model(cfg,embedding_size).to(
         device
-    )
+        )
+        acc,f1,prec,rec = train(cfg,
+            model=model,
+            train_loader=tmp_train_loader,
+            val_loader=tmp_val_loader,
+        )
+        max_f1 = f1 if f1 > max_f1 else max_f1
+        if cfg.wandb.use_wandb:
+            wandb.log(
+            data={
+                "val_acc": acc,
+                "val_precision": prec,
+                "val_recall": rec,
+                "f1": f1,
+            },
+            step=layer_id + 1,
+        )
+    if cfg.wandb.use_wandb:
+        if cfg.wandb.use_wandb:
+            wandb.log({"max_f1":max_f1}) 
 
-    print_number_of_parameters(model)
-
-    train(cfg,
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-    )
