@@ -1,5 +1,7 @@
 
 import torch.nn as nn
+import torch
+import torch.nn.functional as F
 
 class SimpleClassifier(nn.Module):
     def __init__(self, input_size, num_layers=3):
@@ -45,7 +47,6 @@ class LRProbe(nn.Module):
     def forward(self, x, iid=None):
         return self.net(x)
     
-    
 class AllLayerClassifier(nn.Module):
     def __init__(self, embedding_size, num_llm_layers):
         super().__init__()
@@ -57,4 +58,29 @@ class AllLayerClassifier(nn.Module):
     def forward(self, x):
         
         return self.aggregate(self.activation(self.layer_classifiers(x)).squeeze(dim=-1))
-    
+
+
+
+class LayerFusion(nn.Module):
+    def __init__(self,num_llm_layers, embedding_size):
+        super().__init__()
+        self.gating = nn.Conv1d(num_llm_layers,num_llm_layers,embedding_size)
+        self.activation = nn.ReLU()
+        self.classifier = nn.Linear(embedding_size,1)
+
+    def forward(self, x):
+        weights = F.softmax(self.gating(x),dim=-2)
+        result = self.classifier(torch.sum(weights*x,dim=1))
+        return result
+
+if __name__ == "__main__":
+    # Example usage
+    embedding_size = 100
+    layer_size = 42
+    output_size = 1
+    model = LayerFusion(layer_size,embedding_size)
+
+    # Dummy input
+    x = torch.randn(5, layer_size, embedding_size)
+    output = model(x)
+    print(output.shape)
