@@ -43,12 +43,14 @@ def train(cfg,model, train_loader, val_loader):
             optimizer.step()
             # Log the loss
             running_loss += loss.item()
+        
+        if cfg.wandb.use_wandb:
+            wandb.log({"train_loss":running_loss})
+            
         # validation
         all_preds = []
         all_labels = []
         val_loss = 0
-        if cfg.wandb.use_wandb:
-            wandb.log({"train_loss":running_loss})
         for i, data in enumerate(val_loader, 0):
             with torch.no_grad():
                 inputs, labels = data
@@ -69,9 +71,7 @@ def train(cfg,model, train_loader, val_loader):
             preds=all_preds, labels=all_labels
         )
         running_loss /= len(train_loader)
-        # print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss:.4f}")
-        #if cfg.wandb.use_wandb:
-            #wandb.log({"train_loss":running_loss,"val_acc": acc, "val_loss": val_loss, "val_precision": prec, "val_recall": rec, "f1": f1})
+        
         max_f1 = f1 if f1 > max_f1 else max_f1
         if cfg.wandb.use_wandb:
             wandb.log(
@@ -85,6 +85,7 @@ def train(cfg,model, train_loader, val_loader):
         )
     if cfg.wandb.use_wandb:
         wandb.log({"max_f1":max_f1})
+        
     # Save the model checkpoint
     # torch.save(model.state_dict(), "simple_classifier.pth")
 

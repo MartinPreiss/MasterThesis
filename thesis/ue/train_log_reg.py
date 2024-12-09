@@ -37,14 +37,18 @@ def train_log_reg(cfg):
     X_train, X_test, y_train, y_test = train_test_split(all_inputs_np, all_labels_np, test_size=0.2, random_state=cfg.seed)
 
     # Initialize Logistic Regression model
-    log_reg = LogisticRegression(max_iter=200)
+    
 
     num_layers = X_train.shape[-2]
-
+    max_f1 = 0
     for layer_id in range(num_layers):
+        log_reg = LogisticRegression(max_iter=200)
         # Train the model using the training data
         log_reg.fit(X_train[:,layer_id,:], y_train)
 
         acc, prec, rec, f1 =  calculate_metrics(log_reg.predict(X_test[:,layer_id,:]),y_test)
         if cfg.wandb.use_wandb:
             wandb.log(data={"val_acc": acc, "val_precision": prec, "val_recall": rec, "f1": f1},step=layer_id+1)
+        max_f1 = f1 if f1>max_f1 else max_f1
+    if cfg.wandb.use_wandb:
+        wandb.log({"max_f1":max_f1})

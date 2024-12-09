@@ -1,4 +1,4 @@
-name: train_all_layer_classifier
+name: train_classifier
 
 #method
 
@@ -8,5 +8,5 @@ nn:
 training_params:
   learning_rate: 0.001
   epochs: 100
-  batch_size: 100
+  batch_size: 1000
   weight_decay: 0.01

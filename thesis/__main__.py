@@ -3,6 +3,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from thesis.ue.train_classifier import train_classifier
+from thesis.ue.train_classifier_old import train_classifier_old
 from thesis.ue.train_lstm import train_lstm
 from thesis.ue.train_log_reg import train_log_reg
 from thesis.ue.train_all_layer_classifier import train_all_layer_classifier
@@ -16,6 +17,7 @@ from thesis.utils import print_cuda_info
 def main(cfg: DictConfig):
     options = {
         "train_classifier": train_classifier,
+        "train_classifier_old":train_classifier_old,
         "train_lstm": train_lstm,
         "train_log_reg": train_log_reg,
         "train_all_layer_classifier":train_all_layer_classifier,
