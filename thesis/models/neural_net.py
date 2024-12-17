@@ -79,14 +79,42 @@ class LayerFusion(nn.Module):
             return result,encoded_space
         return result, None
 
+class LayerFusionWithWeights(nn.Module):
+    def __init__(self,num_llm_layers, embedding_size):
+        super().__init__()
+        #self.weights = nn.Parameter(torch.randn(num_llm_layers,embedding_size))
+        self.weights = nn.Parameter(torch.randn(num_llm_layers,1))
+        #hidden_size = 100
+        #linear layer_layer #embbeding_size -> embedding_size for every num_llm_layers
+        #self.token_encoder = nn.Linear(embedding_size,hidden_size)
+        self.activation = nn.ReLU()
+        self.classifier = nn.Linear(embedding_size,1)
+        
+        """
+        kernel_size = embedding_size//100
+        hidden_size = (embedding_size - kernel_size + 2 * 0) // 1 + 1
+        self.token_encoder = nn.Conv1d(num_llm_layers,num_llm_layers,kernel_size)
+        self.activation = nn.ReLU()
+        self.classifier = nn.Linear(hidden_size,1)
+        """
+    
+    def forward(self, x,return_encoded_space=False):
+        #x = [batch, num_layers, embedding_size]
+        #x = self.activation(self.token_encoder(x))
+        encoded_space = torch.sum(self.weights*x,dim=1)
+        result = self.classifier(self.activation(encoded_space))
+        if return_encoded_space:
+            return result,encoded_space
+        return result, None
+
 if __name__ == "__main__":
     # Example usage
-    embedding_size = 100
+    embedding_size = 3584
     layer_size = 42
-    output_size = 1
-    model = LayerFusion(layer_size,embedding_size)
+    batch_size = 100
+    model = LayerFusionWithWeights(layer_size,embedding_size)
 
     # Dummy input
-    x = torch.randn(5, layer_size, embedding_size)
-    output = model(x)
+    x = torch.randn(batch_size, layer_size, embedding_size)
+    output, _ = model(x)
     print(output.shape)
