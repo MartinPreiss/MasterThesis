@@ -67,7 +67,7 @@ def init_wandb(cfg):
         
         wandb.init(
             project=cfg.wandb.project_name + "_" + cfg.benchmark.name if cfg.wandb.project_name != "None" else None,
-            name=cfg.task.name + cfg.wandb.name if cfg.wandb.name else cfg.task.name, 
+            name=cfg.task.name + cfg.model.name + cfg.wandb.name if cfg.wandb.name else cfg.task.name, 
             entity = "martinpreiss",
             group=cfg.wandb.group_name if cfg.wandb.group_name != "None" else None,
             config=dict(cfg)) 
