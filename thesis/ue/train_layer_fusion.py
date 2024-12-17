@@ -21,12 +21,27 @@ device = get_device()
 
 
 def train(cfg,model, train_loader, val_loader):
-
+    
+    
     # Loss and optimizer
-    classification_loss = nn.BCEWithLogitsLoss().to(device)
+    if cfg.task.training_params.use_cross_entropy_weighting:    
+        train_labels = torch.cat([y for x,y in train_loader])
+        num_positive = (train_labels == 1).sum().item()
+        num_negative =  len(train_labels) - num_positive
+        pos_weight =torch.ones([1]) * (num_negative / num_positive)
+    else:
+        pos_weight = torch.ones([1])    
+        
+    print("Using Train Weight: ",pos_weight)
+    classification_loss = nn.BCEWithLogitsLoss(pos_weight=pos_weight).to(device)
+    print("Use Contrastive Loss: ",cfg.task.training_params.use_contrastive_loss)
     contrastive_loss = ContrastiveLoss().to(device)
+    print("Use Adam Optimizer with LR: ",cfg.task.training_params.learning_rate, "Weight Decay: ",cfg.task.training_params.weight_decay)
     optimizer = optim.Adam(model.parameters(), lr=cfg.task.training_params.learning_rate,weight_decay=cfg.task.training_params.weight_decay)
-    epochs = cfg.task.training_params.epochs
+    print("Train on epochs: ",cfg.task.training_params.epochs)
+    epochs = cfg.task.training_params.epochs 
+    
+    contrast_loss = torch.Tensor([0]).to(device)
 
     max_f1 = 0
     for epoch in tqdm(range(epochs)):
@@ -40,7 +55,6 @@ def train(cfg,model, train_loader, val_loader):
             # Forward pass
             outputs , encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
             class_loss = classification_loss(outputs, labels)
-            contrast_loss = 0
             if cfg.task.training_params.use_contrastive_loss:
                 contrast_loss = contrastive_loss(encoded_space,labels)
                         
@@ -52,7 +66,7 @@ def train(cfg,model, train_loader, val_loader):
             running_loss += loss.item()
         
         if cfg.wandb.use_wandb:
-            wandb.log({"train_loss":running_loss})
+            wandb.log({"train_loss":running_loss,"classification_loss":class_loss.item(),"contrastive_loss":contrast_loss.item()})
             
         # validation
         all_preds = []
@@ -66,7 +80,7 @@ def train(cfg,model, train_loader, val_loader):
                 if cfg.task.training_params.use_contrastive_loss:
                     val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
                 else:
-                    val_loss = classification_loss(outputs, labels)
+                    val_loss = classification_loss(val_outputs, labels)
                 val_loss += loss.item()
                 all_preds.append(val_outputs)
                 all_labels.append(labels)

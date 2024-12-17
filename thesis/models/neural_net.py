@@ -59,7 +59,7 @@ class AllLayerClassifier(nn.Module):
         
         result =  self.aggregate(self.activation(self.layer_classifiers(x)).squeeze(dim=-1))
         if return_encoded_space:
-            raise Exception("Not implemented")
+            raise Exception("Contrastive Loss Not implemented")
         return result, None
 
 

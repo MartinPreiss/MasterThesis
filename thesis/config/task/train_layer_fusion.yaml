@@ -8,4 +8,4 @@ training_params:
   weight_decay: 0.01
   
   use_contrastive_loss: True
-  positive_weight: 1.0
+  use_cross_entropy_weighting: False

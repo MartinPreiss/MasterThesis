@@ -66,24 +66,36 @@ class ContrastiveLoss(nn.Module):
         self,
         distance_metric= nn.CosineSimilarity(),
         margin: float = 0.5,
-        size_average: bool = True,
+        size_average: bool = False,
+        sample_per_batch = True
     ) -> None:
+        """
+        # Contrastive loss. Expects as input two texts and a label of either 0 or 1. If the label == 1, then the distance between the
+        # two embeddings is reduced. If the label == 0, then the distance between the embeddings is increased.
+            margin: Negative samples (label == 0) should have a distance
+                of at least the margin value.
+            size_average: Average by the size of the mini-batch.
+            sample_per_batch: If True, sample anchor indices at every forward pass
+        """
         
         super().__init__()
         self.distance_metric = distance_metric
         self.margin = margin
         self.size_average = size_average
+        self.indices = None
+        self.sample_per_batch = sample_per_batch
 
     def forward(self,  embeddings, binary_labels):
-        # Contrastive loss. Expects as input two texts and a label of either 0 or 1. If the label == 1, then the distance between the
-        # two embeddings is reduced. If the label == 0, then the distance between the embeddings is increased.
-        
         
         # ---> have to build pairs of anchor and other 
         # ---> get relation of anchor and other (either two positive pair/ two netative pair reduece distance, if two differents increase distance)
 
         # Generate a random permutation of indices
-        permuted_indices = torch.randperm(embeddings.size(0))
+        
+        if self.sample_per_batch:
+            permuted_indices = self.indices if self.indices is not None else torch.randperm(embeddings.size(0)) #init for first called forward pass 
+        else:
+            permuted_indices = torch.randperm(embeddings.size(0))
 
         # Split the permuted indices into pairs
         anchor_indices = permuted_indices[:embeddings.size(0) // 2]
