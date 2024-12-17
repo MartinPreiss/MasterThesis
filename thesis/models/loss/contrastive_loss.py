@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 
-class ContrastiveLoss(nn.Module):
+
+
+# old class which maybe can be removed 
+# was just the first try of implementing the contrastive loss
+class ContrastiveLossInternalInspectorPaper(nn.Module):
     def __init__(self, margin=1.0):
         """
         Initializes the ContrastiveLoss module.
@@ -9,7 +13,7 @@ class ContrastiveLoss(nn.Module):
         Args:
             margin (float): The margin for the contrastive loss.
         """
-        super(ContrastiveLoss, self).__init__()
+        super(ContrastiveLossInternalInspectorPaper, self).__init__()
         self.margin = margin
 
     def forward(self, embeddings, binary_labels):
@@ -54,40 +58,55 @@ class ContrastiveLoss(nn.Module):
         #logarithm
         
         return loss
-        
-        
-        
-        
-        
-        
-        #chat gpt implementation:
-        """
-        Forward pass for the contrastive loss.
-        
-        Args:
-            embeddings (torch.Tensor): Tensor of shape (batch_size, embedding_dim).
-            binary_labels (torch.Tensor): Tensor of shape (batch_size,) with 0 or 1.
-        
-        Returns:
-            torch.Tensor: The computed contrastive loss.
-        
-        # Compute pairwise distances between embeddings
-        pairwise_distances = torch.cdist(embeddings, embeddings, p=2)  # shape: (batch_size, batch_size)
 
-        # Expand labels for pairwise computation
-        labels = binary_labels.unsqueeze(1)  # shape: (batch_size, 1)
-        label_matrix = (labels == labels.T).float()  # shape: (batch_size, batch_size)
 
-        # Contrastive loss components
-        positive_loss = label_matrix * pairwise_distances.pow(2)
-        negative_loss = (1 - label_matrix) * torch.clamp(self.margin - pairwise_distances, min=0).pow(2)
+class ContrastiveLoss(nn.Module):
+    ## https://github.com/UKPLab/sentence-transformers/blob/master/sentence_transformers/losses/ContrastiveLoss.py 
+    def __init__(
+        self,
+        distance_metric= nn.CosineSimilarity(),
+        margin: float = 0.5,
+        size_average: bool = True,
+    ) -> None:
+        
+        super().__init__()
+        self.distance_metric = distance_metric
+        self.margin = margin
+        self.size_average = size_average
 
-        # Combine the losses
-        loss = positive_loss + negative_loss
+    def forward(self,  embeddings, binary_labels):
+        # Contrastive loss. Expects as input two texts and a label of either 0 or 1. If the label == 1, then the distance between the
+        # two embeddings is reduced. If the label == 0, then the distance between the embeddings is increased.
+        
+        
+        # ---> have to build pairs of anchor and other 
+        # ---> get relation of anchor and other (either two positive pair/ two netative pair reduece distance, if two differents increase distance)
 
-        # Compute the mean loss
-        return loss.mean()
-        """
+        # Generate a random permutation of indices
+        permuted_indices = torch.randperm(embeddings.size(0))
+
+        # Split the permuted indices into pairs
+        anchor_indices = permuted_indices[:embeddings.size(0) // 2]
+        other_indices = permuted_indices[embeddings.size(0) // 2:]
+        # Get the embeddings for anchors and others
+        anchor_embeddings = embeddings[anchor_indices]
+        other_embeddings = embeddings[other_indices]
+
+        # Get the corresponding binary labels for the pairs
+        anchor_labels = binary_labels[anchor_indices]
+        other_labels = binary_labels[other_indices]
+        
+        labels = ((anchor_labels + other_labels) + 1) % 2 # 0 if both labels are the different, 1 if they are same
+        
+        #get representations of anchors and others with binary_labels class 
+        
+        #get_anchors and counterparts
+        
+        distances = self.distance_metric(anchor_embeddings, other_embeddings)
+        losses = 0.5 * (
+            labels.float() * distances.pow(2) + (1 - labels).float() * nn.functional.relu(self.margin - distances).pow(2)
+        )
+        return losses.mean() if self.size_average else losses.sum()
 
 if __name__ == "__main__":
     # Example usage
@@ -95,7 +114,7 @@ if __name__ == "__main__":
     binary_labels = torch.randint(0, 2, (20,))  # Example binary labels (0 or 1)
     binary_labels = binary_labels.unsqueeze(1)
 
-    criterion = ContrastiveLoss(margin=1.0)
+    criterion = ContrastiveLoss()
     loss = criterion(embeddings, binary_labels)
 
     print(f"Contrastive Loss: {loss.item()}")
