@@ -1,4 +1,4 @@
-from thesis.models.neural_net import AllLayerClassifier, LayerFusion, MLP, LayerFusionWithWeights
+from thesis.models.neural_net import AllLayerClassifier, LayerFusion, MLP, LayerFusionWithWeights, LayerSimilarityClassifier
 from thesis.models.lstm import LSTMModel
 from thesis.models.mamba import MambaClassifier
 
@@ -15,3 +15,5 @@ def get_model(cfg,embedding_size, num_layers):
         return MLP(embedding_size,num_layers=cfg.model.num_layers)
     elif cfg.model.name == "layer_fusion_weights":
         return LayerFusionWithWeights(embedding_size=embedding_size, num_llm_layers=num_layers)
+    elif cfg.model.name == "layer_similarity_classifier":
+        return LayerSimilarityClassifier(embedding_size=embedding_size, num_llm_layers=num_layers)

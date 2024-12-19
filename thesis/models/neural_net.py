@@ -63,7 +63,6 @@ class AllLayerClassifier(nn.Module):
         return result, None
 
 
-
 class LayerFusion(nn.Module):
     def __init__(self,num_llm_layers, embedding_size):
         super().__init__()
@@ -107,14 +106,56 @@ class LayerFusionWithWeights(nn.Module):
             return result,encoded_space
         return result, None
 
+class LayerSimilarityClassifier(nn.Module):
+    #idea get layer_realtion with cosine_similarity
+    def __init__(self, num_llm_layers, embedding_size):
+        super().__init__()
+        hidden_size = embedding_size // 16
+        self.token_encoder = nn.Linear(embedding_size,hidden_size)
+        
+        self.similarity = nn.CosineSimilarity(dim=-1)
+        self.layer_classifier = nn.Linear(num_llm_layers,1)
+        self.activation = nn.ReLU()
+        self.final_classifier = nn.Linear(num_llm_layers,1)
+        
+
+    def forward(self, x, return_encoded_space=False):
+        #encode_x 
+        #x = self.activation(self.token_encoder(x))
+
+               
+        #for all layers
+        x_normalized = nn.functional.normalize(x, dim=-1)
+        similarities = torch.matmul(x_normalized, x_normalized.transpose(1, 2)).squeeze(-1) #-> [batch, num_layers, num_layers]
+        """ 
+            #2 similarity_layers
+        hidden_layer = self.activation(self.layer_classifier(similarities)).squeeze(-1)
+        result = self.final_classifier(hidden_layer)
+        
+        """
+            #1 similarity_layers 
+        result = self.final_classifier(similarities.flatten(start_dim=1))
+        
+        """
+        #for last_layer only
+        last_layer = x[:,-1:,:]
+        similarities = self.similarity(x,last_layer)
+        result = self.final_classifier(similarities)
+        """
+        
+        if return_encoded_space:
+            raise Exception("Contrastive Loss Not implemented")
+        return result, None
+
 if __name__ == "__main__":
     # Example usage
     embedding_size = 3584
     layer_size = 42
     batch_size = 100
-    model = LayerFusionWithWeights(layer_size,embedding_size)
+    model = LayerSimilarityClassifier(layer_size,embedding_size)
 
     # Dummy input
     x = torch.randn(batch_size, layer_size, embedding_size)
     output, _ = model(x)
     print(output.shape)
+    #print(output)
