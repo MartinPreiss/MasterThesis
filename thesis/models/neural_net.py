@@ -2,6 +2,8 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+import wandb 
+from matplotlib import pyplot as plt
 
 class MLP(nn.Module):
     def __init__(self, input_size, num_layers=3):
@@ -61,6 +63,15 @@ class AllLayerClassifier(nn.Module):
         if return_encoded_space:
             raise Exception("Contrastive Loss Not implemented")
         return result, None
+    
+    def plot_classifier_weights(self):
+        weights = self.aggregate.weight.data.squeeze(0)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(range(len(weights)), weights.cpu().numpy())
+        ax.set_title('Layer Weights')
+        ax.set_xlabel('Dimensions')
+        ax.set_ylabel('Weight Value')
+        wandb.log({"last_layer_weights":wandb.Image(fig)})
 
 
 class LayerFusion(nn.Module):
@@ -78,6 +89,10 @@ class LayerFusion(nn.Module):
             return result,encoded_space
         return result, None
 
+    def plot_classifier_weights(self):
+        print("weight print not possible (input dependent)")
+        pass
+    
 class LayerFusionWithWeights(nn.Module):
     def __init__(self,num_llm_layers, embedding_size):
         super().__init__()
@@ -105,12 +120,27 @@ class LayerFusionWithWeights(nn.Module):
         if return_encoded_space:
             return result,encoded_space
         return result, None
+    
+    
+    def plot_classifier_weights(self):
+        weights = self.weights.data.squeeze()
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(range(len(weights)), weights.cpu().numpy())
+        ax.set_title('Layer Weights')
+        ax.set_xlabel('Dimensions')
+        ax.set_ylabel('Weight Value')
+        wandb.log({"layer_weights":wandb.Image(fig)})         
+        
 
 class LayerSimilarityClassifier(nn.Module):
     #idea get layer_realtion with cosine_similarity
     def __init__(self, num_llm_layers, embedding_size):
         super().__init__()
-        print("TODO: Still no hidden size explaination")
+        
+        self.num_llm_layers = num_llm_layers
+        self.embedding_size = embedding_size
+        
+        print("TODO: Still no hidden size explaination")       
         hidden_size = 100
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         
@@ -140,6 +170,29 @@ class LayerSimilarityClassifier(nn.Module):
             raise Exception("Contrastive Loss Not implemented")
         return result, None
 
+    def plot_classifier_weights(self):
+        weights = self.final_classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.num_llm_layers)
+        
+        # Create a figure for all layers with each layer having a subplot
+        fig, axes = plt.subplots(self.num_llm_layers, 1, figsize=(10, 2 * self.num_llm_layers))
+        for i in range(self.num_llm_layers):
+            axes[i].bar(range(self.num_llm_layers), weights[i].cpu().numpy())
+            axes[i].set_title(f'Layer {i} Weights')
+            axes[i].set_xlabel('Dimensions')
+            axes[i].set_ylabel('Weight Value')
+        plt.tight_layout()
+        wandb.log({"all_layers_weights":wandb.Image(fig)})
+
+        # Create a figure for the sum fusion of all layers
+        sum_weights = weights.sum(dim=0).cpu().numpy()
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(range(self.num_llm_layers), sum_weights)
+        ax.set_title('Sum Fusion of All Layers Weights')
+        ax.set_xlabel('Dimensions')
+        ax.set_ylabel('Weight Value')
+        wandb.log({"sum_fusion_weights":wandb.Image(fig)})
+        
+
 if __name__ == "__main__":
     # Example usage
     embedding_size = 3584
@@ -152,3 +205,4 @@ if __name__ == "__main__":
     output, _ = model(x)
     print(output.shape)
     #print(output)
+    model.plotlayer_weights()

@@ -137,3 +137,5 @@ def train_layer_fusion(cfg : DictConfig):
         train_loader=train_loader,
         val_loader=val_loader,
     )
+    
+    model.plot_classifier_weights()
