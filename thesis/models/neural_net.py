@@ -110,37 +110,30 @@ class LayerSimilarityClassifier(nn.Module):
     #idea get layer_realtion with cosine_similarity
     def __init__(self, num_llm_layers, embedding_size):
         super().__init__()
-        hidden_size = embedding_size // 16
+        print("TODO: Still no hidden size explaination")
+        hidden_size = 100
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         
         self.similarity = nn.CosineSimilarity(dim=-1)
-        self.layer_classifier = nn.Linear(num_llm_layers,1)
         self.activation = nn.ReLU()
-        self.final_classifier = nn.Linear(num_llm_layers,1)
+        self.final_classifier = nn.Linear(num_llm_layers*num_llm_layers,1)
         
 
     def forward(self, x, return_encoded_space=False):
         #encode_x 
-        #x = self.activation(self.token_encoder(x))
-
+        x = self.activation(self.token_encoder(x))
                
-        #for all layers
+        #calculate layer_similarities
         x_normalized = nn.functional.normalize(x, dim=-1)
         similarities = torch.matmul(x_normalized, x_normalized.transpose(1, 2)).squeeze(-1) #-> [batch, num_layers, num_layers]
-        """ 
-            #2 similarity_layers
-        hidden_layer = self.activation(self.layer_classifier(similarities)).squeeze(-1)
-        result = self.final_classifier(hidden_layer)
         
-        """
-            #1 similarity_layers 
+        #classify similarities 
         result = self.final_classifier(similarities.flatten(start_dim=1))
         
-        """
-        #for last_layer only
-        last_layer = x[:,-1:,:]
-        similarities = self.similarity(x,last_layer)
-        result = self.final_classifier(similarities)
+        """ 
+        #--> for each layer independently 
+        hidden_layer = self.activation(self.layer_classifier(similarities)).squeeze(-1)
+        result = self.final_classifier(hidden_layer)
         """
         
         if return_encoded_space:
