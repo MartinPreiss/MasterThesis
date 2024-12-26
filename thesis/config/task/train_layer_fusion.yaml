@@ -7,5 +7,5 @@ training_params:
   batch_size: 100
   weight_decay: 0.01
   
-  use_contrastive_loss: True
+  use_contrastive_loss: False
   use_cross_entropy_weighting: False
