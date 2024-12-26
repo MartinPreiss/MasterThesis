@@ -8,7 +8,7 @@ def get_model(cfg,embedding_size, num_layers):
     elif cfg.model.name == "layer_fusion":
         return LayerFusion(embedding_size=embedding_size, num_llm_layers=num_layers)
     elif cfg.model.name == "lstm":
-        return LSTMModel(embedding_size,hidden_size=cfg.model.hidden_size,num_layers=cfg.model.num_layers)
+        return LSTMModel(embedding_size=embedding_size, num_llm_layers=num_layers,hidden_size=cfg.model.hidden_size,num_layers=cfg.model.num_layers)
     elif cfg.model.name == "mamba":
         return MambaClassifier(embedding_size,cfg.model.num_hidden_layers)
     elif cfg.model.name == "mlp":

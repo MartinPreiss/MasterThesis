@@ -1,17 +1,22 @@
-import torch
 import torch.nn as nn
-import torch.optim as optim
+
+import wandb 
+from matplotlib import pyplot as plt
 
 # Define the LSTM Model with Initialization
 class LSTMModel(nn.Module):
-    def __init__(self, input_size, hidden_size,num_layers):
+    def __init__(self, num_llm_layers,embedding_size, hidden_size,num_layers):
         super(LSTMModel, self).__init__()
         
         # LSTM layer
-        self.lstm = nn.LSTM(input_size, hidden_size,num_layers=num_layers, batch_first=True)
+        self.lstm = nn.LSTM(embedding_size, hidden_size,num_layers=num_layers, batch_first=True)
         
         # Fully connected layer (maps from hidden state output to the prediction)
         self.fc = nn.Linear(hidden_size, 1)
+        
+        self.aggregate = nn.Linear(num_llm_layers,1)
+        
+        self.activation = nn.ReLU()
         
         # Initialize weights
         self.initialize_weights()
@@ -30,12 +35,20 @@ class LSTMModel(nn.Module):
     def forward(self, x, return_encoded_space=False):
         # Forward propagate LSTM
         out, _ = self.lstm(x) # h_t's, (h_n, c_n) 
-        #out has shape of [batch,sequence_length,hidden_size]
-        encoded_space = out[:,-1,:]
+        
             
         # Pass through classifier
-        result = self.fc(encoded_space)
+        results = self.activation(self.fc(self.activation(out)))
+        result = self.aggregate(results.squeeze(-1))
         if return_encoded_space:
-            return out, encoded_space
+            return result, out
         
-        return out, None
+        return result, None
+    def plot_classifier_weights(self):
+        aggregation_weights = self.aggregate.weight.data.squeeze(0)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(range(len(aggregation_weights)), aggregation_weights.cpu().numpy())
+        ax.set_title('Aggregation Weights')
+        ax.set_xlabel('Dimensions')
+        ax.set_ylabel('Weight Value')
+        wandb.log({"aggregation_weights":wandb.Image(fig)})
