@@ -7,7 +7,7 @@ from thesis.ue.continue_learning import continue_learning
 from thesis.ue.train_log_reg import train_log_reg
 from thesis.ue.train_layer_fusion import train_layer_fusion
 from thesis.data_handling.create_dataset import create_dataset
-
+from thesis.ue.test_on_benchmarks import test_on_benchmarks
 from thesis.utils import print_cuda_info
 
 
@@ -19,6 +19,7 @@ def main(cfg: DictConfig):
         "train_log_reg": train_log_reg,
         "train_layer_fusion":train_layer_fusion,
         "create_dataset": create_dataset,
+        "test_on_benchmarks": test_on_benchmarks,
         "playground": playground
     }
 
