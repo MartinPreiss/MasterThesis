@@ -12,6 +12,7 @@ from thesis.models.loss.contrastive_loss import ContrastiveLoss
 from omegaconf import DictConfig
 import warnings
 import wandb
+import datetime
 
 from tqdm import tqdm
 
@@ -96,7 +97,9 @@ def train(cfg,model, train_loader, val_loader):
         )
         running_loss /= len(train_loader)
         
-        max_f1 = f1 if f1 > max_f1 else max_f1
+        if f1 > max_f1:
+            max_f1 = f1 
+            checkpoint_model = model.state_dict()
         if cfg.wandb.use_wandb:
             wandb.log(
             data={
@@ -111,6 +114,10 @@ def train(cfg,model, train_loader, val_loader):
         wandb.log({"max_f1":max_f1})
         
     # Save the model checkpoint
+    if cfg.task.training_params.save_model:
+        date = datetime.datetime.now().strftime("%H_%M__%d_%m_%Y")
+        model_path = f"thesis/data/models/{cfg.model.name}_{date}.pth"
+        torch.save(checkpoint_model,model_path)
     # torch.save(model.state_dict(), "simple_classifier.pth")
 
 def train_layer_fusion(cfg : DictConfig):

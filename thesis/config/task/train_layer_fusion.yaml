@@ -9,3 +9,4 @@ training_params:
   
   use_contrastive_loss: False
   use_cross_entropy_weighting: False
+  save_model: False

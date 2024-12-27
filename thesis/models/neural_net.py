@@ -83,7 +83,7 @@ class GatedLayerFusion(nn.Module):
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         self.gating = nn.Conv1d(num_llm_layers,num_llm_layers,hidden_size)
         self.activation = nn.ReLU()
-        self.classifier = nn.Linear(embedding_size,1)
+        self.classifier = nn.Linear(hidden_size,1)
 
     def forward(self, x,return_encoded_space=False):
         x = self.activation(self.token_encoder(x))
