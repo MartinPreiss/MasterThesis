@@ -79,8 +79,9 @@ class AllLayerClassifier(nn.Module):
 class GatedLayerFusion(nn.Module):
     def __init__(self,num_llm_layers, embedding_size):
         super().__init__()
-        self.token_encoder = nn.Linear(embedding_size,100)
-        self.gating = nn.Conv1d(num_llm_layers,num_llm_layers,embedding_size)
+        hidden_size = 100
+        self.token_encoder = nn.Linear(embedding_size,hidden_size)
+        self.gating = nn.Conv1d(num_llm_layers,num_llm_layers,hidden_size)
         self.activation = nn.ReLU()
         self.classifier = nn.Linear(embedding_size,1)
 

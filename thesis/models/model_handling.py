@@ -5,7 +5,7 @@ from thesis.models.mamba import MambaClassifier
 def get_model(cfg,embedding_size, num_layers):
     if cfg.model.name == "all_layer_classifier":
         return AllLayerClassifier(embedding_size=embedding_size, num_llm_layers=num_layers)
-    elif cfg.model.name == "layer_fusion":
+    elif cfg.model.name == "gated_layer_fusion":
         return GatedLayerFusion(embedding_size=embedding_size, num_llm_layers=num_layers)
     elif cfg.model.name == "lstm":
         return LSTMModel(embedding_size=embedding_size, num_llm_layers=num_layers,hidden_size=cfg.model.hidden_size,num_layers=cfg.model.num_layers)
