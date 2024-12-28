@@ -12,7 +12,6 @@ from thesis.models.loss.contrastive_loss import ContrastiveLoss
 from omegaconf import DictConfig
 import warnings
 import wandb
-import datetime
 
 from tqdm import tqdm
 import os
@@ -42,7 +41,7 @@ def evaluate_model(cfg: DictConfig, data_loader,model,benchmark_name):
     all_labels = []
     val_loss = 0
     with torch.no_grad():
-        for i, data in enumerate(data_loader, 0):
+        for i, data in tqdm(enumerate(data_loader, 0)):
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
             val_outputs, encoded_space = model(inputs, cfg.task.training_params.use_contrastive_loss)
@@ -63,6 +62,7 @@ def evaluate_model(cfg: DictConfig, data_loader,model,benchmark_name):
 def test_on_benchmarks(cfg: DictConfig):
     print("STILL TESTING ONLY ON VALIDATION")
     cfg.wandb.name = "test_" + str(cfg.wandb.name).replace("None","")
+    cfg.wandb.project_name = "generalization_tests"
     init_wandb(cfg)
     
     # Create a table for bar chart
@@ -78,15 +78,18 @@ def test_on_benchmarks(cfg: DictConfig):
         cfg.benchmark.name = benchmark_name 
         # Load the dataset
         dataset = get_embedding_dataset(cfg)
-        train_loader, val_loader, test_loader = get_dataloaders(cfg, dataset)
+        _, val_loader, _ = get_dataloaders(cfg, dataset)
         embedding_size = dataset[0][0].shape[-1]
         num_layers = dataset[0][0].shape[-2]
 
         if benchmark_name == first_benchmark:
             #dont load model for every benchmark
+            #but need embedding size and num_layers
             model = get_model(cfg, embedding_size=embedding_size, num_layers=num_layers).to(device)
             model.load_state_dict(torch.load(model_path))
             model.eval()
+            print("Model loaded")
+            print_number_of_parameters(model)
 
         val_loss, acc, prec, rec, f1 = evaluate_model(cfg, data_loader=val_loader, model=model,benchmark_name=benchmark_name)
 

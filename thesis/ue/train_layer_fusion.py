@@ -116,9 +116,8 @@ def train(cfg,model, train_loader, val_loader):
     # Save the model checkpoint
     if cfg.task.training_params.save_model:
         date = datetime.datetime.now().strftime("%H_%M__%d_%m_%Y")
-        model_path = f"thesis/data/models/{cfg.model.name}_{date}.pth"
+        model_path = f"thesis/data/models/{cfg.model.name}_{cfg.benchmark.name}_{date}.pth"
         torch.save(checkpoint_model,model_path)
-    # torch.save(model.state_dict(), "simple_classifier.pth")
 
 def train_layer_fusion(cfg : DictConfig):
     
