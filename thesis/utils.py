@@ -64,7 +64,7 @@ def get_device():
 
 def init_wandb(cfg):
     if cfg.wandb.use_wandb:
-        
+        os.environ["WANDB_MODE"] = "dryrun"
         default_name = cfg.model.name 
         wandb.init(
             project=cfg.wandb.project_name + "_" + cfg.benchmark.name if cfg.wandb.project_name != "None" else None,

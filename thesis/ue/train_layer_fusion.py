@@ -117,6 +117,7 @@ def train(cfg,model, train_loader, val_loader):
     if cfg.task.training_params.save_model:
         date = datetime.datetime.now().strftime("%H_%M__%d_%m_%Y")
         model_path = f"thesis/data/models/{cfg.model.name}_{cfg.benchmark.name}_{date}.pth"
+        print("saving model to ",model_path)
         torch.save(checkpoint_model,model_path)
 
 def train_layer_fusion(cfg : DictConfig):
@@ -135,7 +136,38 @@ def train_layer_fusion(cfg : DictConfig):
     model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
         device
     )
+    
+    if cfg.task.use_pretrained: 
+        model.load_state_dict(torch.load(cfg.model.pretrained_model_path))
+        model.freeze_last_layers()
 
+    print_number_of_parameters(model)
+
+    train(cfg,
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+    )
+    
+    model.plot_classifier_weights()
+
+def finetune_layer_fusion(cfg : DictConfig):
+    
+    init_wandb(cfg)
+    # Load the dataset
+    dataset = get_embedding_dataset(cfg)
+    
+    # dataset = Subset(dataset,range(10))
+    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+
+    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
+    num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
+    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
+
+    model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
+        device
+    )
+    
     print_number_of_parameters(model)
 
     train(cfg,

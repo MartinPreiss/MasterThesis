@@ -198,7 +198,12 @@ class EnsembleLayerFusionWithWeights(nn.Module):
         ax.set_ylabel('Weight Value')
         wandb.log({"aggregation_weights":wandb.Image(fig)})
         
-        
+    
+    def freeze_last_layers(self):
+        self.classifier.requires_grad = False
+        self.aggregate.requires_grad = False
+        self.weights.requires_grad = False
+          
         
 class LayerSimilarityClassifier(nn.Module):
     #idea get layer_realtion with cosine_similarity
@@ -260,8 +265,10 @@ class LayerSimilarityClassifier(nn.Module):
         ax.set_xlabel('Dimensions')
         ax.set_ylabel('Weight Value')
         wandb.log({"sum_fusion_weights":wandb.Image(fig)})
+    
+    def freeze_last_layers(self):
+        self.final_classifier.requires_grad = False
         
-
 class LayerAtentionClassifier(nn.Module):
     
     def __init__(self,num_llm_layers, embedding_size):
