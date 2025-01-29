@@ -1,4 +1,4 @@
-from thesis.models.neural_net import AllLayerClassifier, GatedLayerFusion, MLP, LayerFusionWithWeights, LayerSimilarityClassifier,EnsembleLayerFusionWithWeights, LayerAtentionClassifier
+from thesis.models.neural_net import AllLayerClassifier, GatedLayerFusion, MLP, LayerFusionWithWeights, LayerSimilarityClassifier,EnsembleLayerFusionWithWeights, LayerAtentionClassifier, Baseline1, Baseline2, EuclideanDistanceClassifier
 from thesis.models.lstm import LSTMModel
 from thesis.models.mamba import MambaClassifier
 
@@ -21,3 +21,9 @@ def get_model(cfg,embedding_size, num_layers):
         return EnsembleLayerFusionWithWeights(embedding_size=embedding_size, num_llm_layers=num_layers)
     elif cfg.model.name == "layer_attention":  
         return LayerAtentionClassifier(embedding_size=embedding_size, num_llm_layers=num_layers)
+    elif cfg.model.name == "baseline1":
+        return Baseline1(embedding_size=embedding_size, num_llm_layers=num_layers)
+    elif cfg.model.name == "baseline2":
+        return Baseline2(embedding_size=embedding_size, num_llm_layers=num_layers)
+    elif cfg.model.name == "euclidean_distance":
+        return EuclideanDistanceClassifier(embedding_size=embedding_size, num_llm_layers=num_layers)

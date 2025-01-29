@@ -1,6 +1,5 @@
 name: test_on_benchmarks
-model_path: thesis/data/models/layer_similarity_classifier_20_20__27_12_2024.pth
-
+model_path: thesis/data/models/ensemble_weight_fusion_truthfulqa_11_45__28_12_2024.pth
 training_params:
   batch_size: 100
   use_contrastive_loss: False

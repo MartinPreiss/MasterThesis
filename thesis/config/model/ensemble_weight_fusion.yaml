@@ -1,1 +1,2 @@
 name: ensemble_weight_fusion
+pretrained_model_path: thesis/data/models/ensemble_weight_fusion_haluleval_09_20__28_12_2024.pth

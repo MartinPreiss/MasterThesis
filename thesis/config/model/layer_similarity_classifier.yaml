@@ -1,1 +1,2 @@
 name: layer_similarity_classifier
+pretrained_model_path: thesis/data/models/layer_similarity_classifier_20_20__27_12_2024.pth

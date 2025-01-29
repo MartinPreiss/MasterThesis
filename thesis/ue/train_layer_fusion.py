@@ -20,7 +20,6 @@ warnings.filterwarnings("always")
 
 device = get_device()
 
-
 def train(cfg,model, train_loader, val_loader):
     
     
@@ -45,6 +44,7 @@ def train(cfg,model, train_loader, val_loader):
     contrast_loss = torch.Tensor([0]).to(device)
 
     max_f1 = 0
+    min_val_loss = torch.inf
     for epoch in tqdm(range(epochs)):
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
@@ -100,6 +100,7 @@ def train(cfg,model, train_loader, val_loader):
         if f1 > max_f1:
             max_f1 = f1 
             checkpoint_model = model.state_dict()
+        
         if cfg.wandb.use_wandb:
             wandb.log(
             data={
@@ -110,15 +111,71 @@ def train(cfg,model, train_loader, val_loader):
                 "f1": f1,
             }
         )
+            
+        if cfg.task.training_params.early_stopping:
+            if val_loss < min_val_loss:
+                min_val_loss = val_loss 
+                early_stopping_checkpoint = model.state_dict()
+                early_stopping_counter = 0
+            else:
+                if early_stopping_counter >= cfg.task.training_params.patience:
+                    print("Early Stopping")
+                    break
+                early_stopping_counter += 1
+
     if cfg.wandb.use_wandb:
         wandb.log({"max_f1":max_f1})
+    
+    
+    # get final evaluation
+    if cfg.task.training_params.early_stopping:
+        model.load_state_dict(early_stopping_checkpoint)
+        all_preds = []
+        all_labels = []
+        val_loss = 0
+        for i, data in enumerate(val_loader, 0):
+            with torch.no_grad():
+                inputs, labels = data
+                inputs, labels = inputs.to(device), labels.to(device)
+                val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
+                if cfg.task.training_params.use_contrastive_loss:
+                    val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
+                else:
+                    val_loss = classification_loss(val_outputs, labels)
+                val_loss += loss.item()
+                all_preds.append(val_outputs)
+                all_labels.append(labels)
+        val_loss /= len(val_loader)
+        # Calculate metrics after each epoch
+        all_preds = torch.cat(all_preds)
+        all_labels = torch.cat(all_labels)
+        all_preds = torch.where(
+            all_preds >= 0.0, 1.0, 0.0
+        )  # Convert logits to binary predictions
+        acc, prec, rec, f1 = calculate_metrics(
+            preds=all_preds, labels=all_labels
+        )
+        
+        wandb.log(
+            data={
+                "ckpt_loss":val_loss,
+                "ckpt_acc": acc,
+                "ckpt_precision": prec,
+                "ckpt_recall": rec,
+                "ckpt_f1": f1,
+                "early_stopping_epoch":epoch
+            }
+        )
         
     # Save the model checkpoint
     if cfg.task.training_params.save_model:
         date = datetime.datetime.now().strftime("%H_%M__%d_%m_%Y")
         model_path = f"thesis/data/models/{cfg.model.name}_{cfg.benchmark.name}_{date}.pth"
         print("saving model to ",model_path)
-        torch.save(checkpoint_model,model_path)
+        if cfg.task.training_params.early_stopping:
+            torch.save(early_stopping_checkpoint,model_path)
+        else:
+            torch.save(checkpoint_model,model_path)
 
 def train_layer_fusion(cfg : DictConfig):
     
@@ -148,8 +205,10 @@ def train_layer_fusion(cfg : DictConfig):
         train_loader=train_loader,
         val_loader=val_loader,
     )
-    
-    model.plot_classifier_weights()
+    try:    
+        model.plot_classifier_weights()
+    except:
+        print("Could not plot classifier weights")
 
 def finetune_layer_fusion(cfg : DictConfig):
     
@@ -176,4 +235,87 @@ def finetune_layer_fusion(cfg : DictConfig):
         val_loader=val_loader,
     )
     
-    model.plot_classifier_weights()
+    
+    try:    
+        model.plot_classifier_weights()
+    except:
+        print("Could not plot classifier weights")
+
+def get_validation_metrics(cfg,model,val_loader):
+    all_preds = []
+    all_labels = []
+    val_loss = 0
+    for i, data in enumerate(val_loader, 0):
+        with torch.no_grad():
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+            val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
+            all_preds.append(val_outputs)
+            all_labels.append(labels)
+    val_loss /= len(val_loader)
+    # Calculate metrics after each epoch
+    all_preds = torch.cat(all_preds)
+    all_labels = torch.cat(all_labels)
+    all_preds = torch.where(
+        all_preds >= 0.0, 1.0, 0.0
+    )  # Convert logits to binary predictions
+    acc, prec, rec, f1 = calculate_metrics(
+        preds=all_preds, labels=all_labels
+    )
+    
+    return acc, prec, rec, f1
+
+def average_earlystopping(cfg : DictConfig):
+    
+    init_wandb(cfg)
+    # Load the dataset
+    dataset = get_embedding_dataset(cfg)
+    
+    # dataset = Subset(dataset,range(10))
+    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+
+    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
+    num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
+    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
+    
+    cfg.wandb.use_wandb = False
+    accs,precs, recs, f1s = [],[],[],[]
+    for i in tqdm(range(cfg.task.number_of_runs)):
+        model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
+        device
+        )
+        train(cfg,
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+        )
+        acc, prec, rec, f1 = get_validation_metrics(cfg,model,val_loader)
+        accs.append(acc)
+        precs.append(prec)
+        recs.append(rec)
+        f1s.append(f1)
+    
+    # calculate average and log for wandb 
+    accs = torch.Tensor(accs)
+    precs = torch.Tensor(precs)
+    recs = torch.Tensor(recs)
+    f1s = torch.Tensor(f1s)
+    
+    wandb.log(
+        data={
+            "avg_acc": accs.mean(),
+            "avg_precision": precs.mean(),
+            "avg_recall": recs.mean(),
+            "avg_f1": f1s.mean(),
+            "std_acc": accs.std(),
+            "std_precision": precs.std(),
+            "std_recall": recs.std(),
+            "std_f1": f1s.std(),
+        }
+    )
+        
+        
+        
+    
+    
+    

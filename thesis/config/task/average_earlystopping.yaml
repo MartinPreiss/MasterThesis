@@ -1,4 +1,6 @@
-name: train_layer_fusion 
+name: average_earlystopping
+
+number_of_runs: 1000
 
 #method 
 training_params:

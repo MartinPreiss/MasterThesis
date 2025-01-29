@@ -71,4 +71,5 @@ def init_wandb(cfg):
             name=  cfg.wandb.name + default_name   if cfg.wandb.name else default_name,
             entity = "martinpreiss",
             group=cfg.wandb.group_name if cfg.wandb.group_name != "None" else None,
-            config=dict(cfg)) 
+            config=dict(cfg), 
+            mode="online") 

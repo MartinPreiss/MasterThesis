@@ -1,0 +1,2 @@
+name: baseline1
+pretrained_model_path: thesis/data/models/baseline2.pth
