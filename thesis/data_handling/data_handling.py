@@ -52,9 +52,8 @@ def print_label_data(y, split_type="total"):
     num_negative =  len(y) - num_positive
     print(f"Percentage of {split_type} positive samples {num_positive / len(y):.2f}")
     print(f"Percentage of {split_type} negative samples {num_negative / len(y):.2f}")
-    
 
-def get_dataloaders(cfg,dataset):
+def perform_train_val_test_split(cfg,dataset):
     
     #prepare for dataset_spliting
     X = torch.stack([dataset[i][0] for i in range(len(dataset))])
@@ -99,12 +98,7 @@ def get_dataloaders(cfg,dataset):
     train_dataset = TensorDataset(torch.index_select(X.cpu(), 0, train_indices.cpu()),y_train)
     val_dataset = TensorDataset(torch.index_select(X.cpu(), 0, val_indices.cpu()),y_val)
     test_dataset = TensorDataset(torch.index_select(X.cpu(), 0, test_indices.cpu()),y_test)
-
-    # Create DataLoaders for training and validation
-    batch_size = cfg.task.training_params.batch_size
-    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
+    
     
     #print some statistics 
     print("Dataset Size", data_size)
@@ -115,6 +109,19 @@ def get_dataloaders(cfg,dataset):
     print_label_data(y_train,"y_train")
     print_label_data(y_val,"y_val")
     print_label_data(y_test,"y_test")
+    
+    return train_dataset, val_dataset, test_dataset
+
+def get_dataloaders(cfg,dataset):
+    
+    train_dataset, val_dataset, test_dataset = perform_train_val_test_split(cfg,dataset)
+
+    # Create DataLoaders for training and validation
+    batch_size = cfg.task.training_params.batch_size
+    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
+    
     return train_loader, val_loader, test_loader
 
 def get_dataloader_for_layer(data_loader,layer_id,batch_size):
