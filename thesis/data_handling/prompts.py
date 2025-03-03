@@ -62,3 +62,9 @@ User_Question: {question}
 User_Answer: {answer}
 
 Output: The User_Answer is """
+
+
+qa_format =  """User_Question: {question}
+
+User_Answer: {answer}
+"""

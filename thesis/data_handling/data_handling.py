@@ -1,4 +1,5 @@
 import torch 
+import os
 from tqdm import tqdm
 from torch.utils.data import Dataset,DataLoader, TensorDataset
 from sklearn.decomposition import PCA
@@ -9,7 +10,7 @@ from thesis.data_handling.benchmark import get_df
 
 def get_embedding_dataset(cfg):
     model_name = cfg.llm.name[cfg.llm.name.rfind("/")+1:]
-    dataset = torch.load(f"thesis/data/datasets/embeddings/embedding_{model_name}_{cfg.benchmark.name}.pth")#,map_location=torch.device('cpu'))   
+    dataset = torch.load(f"/mnt/vast-gorilla/martin.preiss/datasets/last_token/embedding_{model_name}_{cfg.benchmark.name}.pth",weights_only=False,map_location=torch.device('cpu'))   
     if cfg.pca.use_pca:
         raise(Exception("WARNING: PCA not only performed on test set")) 
         dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)
@@ -186,3 +187,15 @@ class CovEigDataset(Dataset):
     def __getitem__(self, idx):
         
         return self.data[idx], self.labels[idx]    
+
+class PositionalDataset(Dataset):
+    def __init__(self, path):
+        self.dataset_path = path
+    
+    def __len__(self):
+        return len((os.listdir(self.dataset_path))) // 2  # Assuming each embedding has a corresponding label file
+
+    def __getitem__(self, idx):
+        pos_embeddings = torch.load(f"{self.dataset_path}/embeddings_{idx}.pth")
+        labels = torch.load(f"{self.dataset_path}/labels_{idx}.pth")
+        return pos_embeddings, labels 

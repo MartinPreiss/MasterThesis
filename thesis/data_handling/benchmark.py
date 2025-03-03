@@ -1,5 +1,5 @@
 import pandas as pd 
-from thesis.data_handling.prompts import system_prompt_valid_invalid, user_prompt_valid_invalid, simple_prompt
+from thesis.data_handling.prompts import system_prompt_valid_invalid, user_prompt_valid_invalid, simple_prompt, qa_format
 from thesis.utils import get_absolute_path
 def get_gemma_prompt(cot=False):
     if not cot: 
@@ -57,7 +57,8 @@ def get_refact_df(cfg):
     df = df.dropna()
     
     df = df.rename(columns={
-    "transformed_answer": "fake_answer"
+    "transformed_answer": "fake_answer",
+    "transformed_answer_tagged": "fake_answer_tagged",
     })
     return df
 
@@ -73,3 +74,10 @@ def get_prompt_df(cfg):
     df["original_prompt"] = df.apply(lambda row: prompt.format(question=row["question"],answer =row["answer"]), axis=1 )
     df["transformed_prompt"]  = df.apply(lambda row: prompt.format(question=row["question"],answer =row["fake_answer"]), axis=1)
     return df[["transformed_prompt","original_prompt"]]
+
+def get_qa_df(cfg):
+    df = get_df(cfg)
+    df["original_qa"] = df.apply(lambda row: qa_format.format(question=row["question"],answer =row["answer"]), axis=1 )
+    df["transformed_qa"]  = df.apply(lambda row: qa_format.format(question=row["question"],answer =row["fake_answer"]), axis=1)
+    df["tagged_transformed_qa"]  = df.apply(lambda row: qa_format.format(question=row["question"],answer =row["fake_answer_tagged"]), axis=1)
+    return df[["transformed_qa","original_qa","tagged_transformed_qa"]]
