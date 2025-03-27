@@ -1,0 +1,3 @@
+[submodule "thesis/baselines/selfcheckgpt"]
+	path = thesis/baselines/selfcheckgpt
+	url = https://github.com/potsawee/selfcheckgpt
