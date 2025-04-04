@@ -4,7 +4,6 @@ import torch
 import torch.nn.functional as F
 import wandb 
 from matplotlib import pyplot as plt
-from torchmetrics.functional.pairwise import pairwise_cosine_similarity, pairwise_euclidean_distance
 
 
 
@@ -13,43 +12,44 @@ def no_comparison(x):
     # No comparison, just return the input
     return x
 
-def euclidean_distance(x):
+def dot_product(x):
     # [batch, num_layers, input]
-    # oriented of https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/functional/pairwise/euclidean.py 
-    _orig_dtype = x.dtype
-    x = x.to(torch.float64)
-    y = x.to(torch.float64)
-    x_norm = (x * x).sum(dim=-1, keepdim=True)
-    y_norm = (y * y).sum(dim=-1, keepdim=True)
-    distance = (x_norm + y_norm - 2 * x.mm(y.transpose(-1, -2))).to(_orig_dtype)
-    return distance
+    return torch.sum(x * x, dim=-1)
 
 def euclidean_norm(x):
     # [batch, num_layers, input]
-    norms = torch.norm(x, p=2, dim=-1)
-    return norms
-
-def manhatten_distance(x):
-    pass
+    return torch.linalg.norm(x,dim=-1)
 
 def manhatten_norm(x):
-    pass
-
-def innere_product(x):
     # [batch, num_layers, input]
-    pass
+    return torch.sum(x, dim=-1)
+
+def pairwise_dot_product(x):
+    # [batch, num_layers, input]
+    # can be treated as a matrix multiplication 
+    return torch.matmul(x, x.transpose(-1, -2))
+
+
+def euclidean_distance(x):
+    # [batch, num_layers, input]
+    """naive but slow implementation
+    pairwise_difference = x.unsqueeze(-2) - x.unsqueeze(-1)
+    pairwise_distance = torch.linalg.norm(pairwise_difference, dim=-1)
+   """
+    return torch.cdist(x, x, p=2)
+
+def manhatten_distance(x):
+    # Compute pairwise Manhattan distance using broadcasting
+    pairwise_distance = torch.cdist(x, x, p=1)
+    return pairwise_distance
+    
 
 def cosine_similarity(x):
     # [batch, num_layers,embedding_size]
-    #implementation oriented of https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/functional/pairwise/cosine.py
-    y= x
-    norm = torch.norm(x, p=2, dim=-1)
-    x = x / norm.unsqueeze(-1)
-    norm = torch.norm(y, p=2, dim=-1)
-    y = y / norm.unsqueeze(-1)
-    
-    similarities = torch.matmul(x, y.transpose(-1, -2))
+    x_normalized = F.normalize(x, p=2, dim=-1)
+    similarities = torch.matmul(x, x_normalized.transpose(-1, -2))
     return similarities
+    
     
 
 class MLPEncoder(nn.Module):
@@ -164,17 +164,39 @@ class LayerComparisionClassifier(nn.Module):
         
         self.comparer = None
         aggregation_input_size = None
-        if comparison_method == "cosine":
-            self.comparer = cosine_similarity
-        elif comparison_method == "euclidean":
-            self.comparer = euclidean_distance
-        elif comparison_method == "no_comparison":
+        nothing, single, pairwise = False, False, False
+        if comparison_method == "no_comparison":
             self.comparer = no_comparison
+            nothing = True
+        elif comparison_method == "dot_product":
+            self.comparer = dot_product
+            single = True
+        elif comparison_method == "manhatten":
+            self.comparer = manhatten_norm
+            single = True
+        elif comparison_method == "euclidean_norm":
+            self.comparer = euclidean_norm
+            single = True
+        elif comparison_method == "manhatten_distance":
+            self.comparer = manhatten_distance
+            pairwise = True
+        elif comparison_method == "pairwise_dot_product":
+            self.comparer = pairwise_dot_product
+            pairwise = True
+        elif comparison_method == "euclidean_distance":
+            self.comparer = euclidean_distance
+            pairwise = True
+        elif comparison_method == "cosine":
+            self.comparer = cosine_similarity
+            pairwise = True
+        
         
         self.aggregator = None
         if aggregation_method == "shared_classifier_ensemble":
-            if comparison_method == "no_comparison":
+            if nothing:
                 aggregation_input_size = encoded_size
+            elif single:
+                raise Exception("Shared classifier ensemble cannot be used with single layer comparison methods")
             else: 
                 aggregation_input_size = num_llm_layers
             self.aggregator = SharedClassifierEnsemble(num_llm_layers,aggregation_input_size, output_size, nn.ReLU())
@@ -182,6 +204,8 @@ class LayerComparisionClassifier(nn.Module):
         elif aggregation_method == "different_classifiers_ensemble":
             if comparison_method == "no_comparison":
                 aggregation_input_size = encoded_size
+            elif single:
+                raise Exception("Different classifier ensemble cannot be used with single layer comparison methods")
             else: 
                 aggregation_input_size = num_llm_layers
             self.aggregator = DifferentClassifierEnsemble(num_llm_layers,aggregation_input_size , output_size, nn.ReLU())
@@ -189,10 +213,17 @@ class LayerComparisionClassifier(nn.Module):
             
             if comparison_method == "no_comparison":
                 aggregation_input_size = encoded_size * num_llm_layers
+            elif single:
+                aggregation_input_size = num_llm_layers
             else: 
                 aggregation_input_size = num_llm_layers * num_llm_layers
             self.aggregator = DirectClassifier(aggregation_input_size, output_size)
-            
+        
+        
+        if self.comparer is None:
+            raise ValueError(f"Invalid comparison method: {comparison_method}")
+        if self.aggregator is None:
+            raise ValueError(f"Invalid aggregation method: {aggregation_method}")
         
 
     def forward(self, x, return_encoded_space=False):
@@ -245,9 +276,32 @@ if __name__ == "__main__":
     batch_size = 100
     output_size = 5
     
+    comparison_methods = ["no_comparison", "dot_product", "euclidean_norm", "manhatten", "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"]
+    aggregation_methods = ["shared_classifier_ensemble", "different_classifiers_ensemble", "flattend_aggregation"]
+    
+    for comparison_method in comparison_methods:
+        x = torch.randn(batch_size, layer_size, embedding_size)
+        if comparison_method == "cosine":
+            comparer = cosine_similarity
+        elif comparison_method == "dot_product":
+            comparer = dot_product
+        elif comparison_method == "manhatten":
+            comparer = manhatten_norm
+        elif comparison_method == "euclidean_norm":
+            comparer = euclidean_norm
+        elif comparison_method == "manhatten_distance":
+            comparer = manhatten_distance
+        elif comparison_method == "pairwise_dot_product":
+            comparer = pairwise_dot_product
+        elif comparison_method == "euclidean_distance":
+            comparer = euclidean_distance
+        elif comparison_method == "no_comparison":
+            comparer = no_comparison
+        comparison = comparer(x)
+        print(f"Comparison method: {comparison_method}, Output shape: {comparison.shape}")
     """
-    for comparison_method in  ["cosine", "euclidean", "no_comparison"]:
-        for aggregation_method in ["shared_classifier_ensemble", "different_classifiers_ensemble", "flattend_aggregation"]:
+    for comparison_method in comparison_methods:
+        for aggregation_method in aggregation_methods:
             model = LayerComparisionClassifier(layer_depth=depth, 
                                                embedding_size=embedding_size, 
                                                num_llm_layers=layer_size, 
@@ -258,15 +312,17 @@ if __name__ == "__main__":
             x = torch.randn(batch_size, layer_size, embedding_size)
             output, _ = model(x)
             print(output.shape)
-    """        
+         
     model = LayerComparisionClassifier(layer_depth=depth, 
                                                embedding_size=embedding_size, 
                                                num_llm_layers=layer_size, 
                                                output_size=output_size, 
                                                comparison_method="euclidean", 
                                                aggregation_method="shared_classifier_ensemble")
+    
     # Dummy input
     x = torch.randn(batch_size, layer_size, embedding_size)
     output, _ = model(x)
     print(output.shape)
+    """
     
