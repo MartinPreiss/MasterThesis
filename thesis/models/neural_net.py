@@ -55,6 +55,7 @@ class AllLayerClassifier(nn.Module):
         hidden_size = 100
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         self.layer_classifiers = nn.Conv1d(num_llm_layers,num_llm_layers,hidden_size)
+        print("conv1d is not a seperate classifier, use groups if you want to achieve that ")
         self.activation = nn.ReLU()
         self.aggregate = nn.Linear(num_llm_layers,1)
 
@@ -212,8 +213,7 @@ class LayerSimilarityClassifier(nn.Module):
         
         self.num_llm_layers = num_llm_layers
         self.embedding_size = embedding_size
-        
-        print("TODO: Still no hidden size explaination")       
+          
         hidden_size = 100
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         
@@ -277,8 +277,7 @@ class EuclideanDistanceClassifier(nn.Module):
         
         self.num_llm_layers = num_llm_layers
         self.embedding_size = embedding_size
-        
-        print("TODO: Still no hidden size explaination")       
+         
         hidden_size = 100
         self.token_encoder = nn.Linear(embedding_size,hidden_size)
         
@@ -293,7 +292,6 @@ class EuclideanDistanceClassifier(nn.Module):
         #calculate euclidean distance 
         distances = torch.cdist(encoded_space, encoded_space, p=2.0)
         
-        print(distances.shape)
         #classify similarities 
         result = self.final_classifier(distances.flatten(start_dim=1))
         

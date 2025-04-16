@@ -62,7 +62,7 @@ class MLPEncoder(nn.Module):
         current_size = input_size
         
         # Dynamically create hidden layers
-        for i in range(num_layers - 1):
+        for i in range(num_layers):
             next_size = current_size // 2  # Halving the size each time
             self.layers.append(nn.Linear(in_features=current_size, out_features=next_size))
             
@@ -80,9 +80,25 @@ class MLPEncoder(nn.Module):
             x = self.activation_func(layer(x))
             
         return x
+    
+class FinalClassifier(nn.Module):
+    def __init__(self, input_size, output_size, activation_fun, final_classifier_non_linear=False):
+        super().__init__()
+        if final_classifier_non_linear:
+            self.classifier = nn.Sequential(
+                    nn.Linear(input_size, input_size // 2),
+                    activation_fun,
+                    nn.Linear(input_size // 2, output_size)
+                )
+        else:
+            self.classifier = nn.Linear(input_size, output_size)
+        
+    def forward(self, x):
+        return self.classifier(x)
+
 
 class SharedClassifierEnsemble(nn.Module):
-    def __init__(self, num_llm_layers, input_size, output_size, activation_fun):
+    def __init__(self, num_llm_layers, input_size, output_size, activation_fun, final_classifier_non_linear=False):
         super().__init__()
         
         self.num_llm_layers = num_llm_layers
@@ -90,7 +106,7 @@ class SharedClassifierEnsemble(nn.Module):
         self.output_size = output_size
         self.activation_fun = activation_fun
         
-        self.classifier = nn.Linear(input_size, output_size)
+        self.classifier = FinalClassifier(input_size, output_size, activation_fun, final_classifier_non_linear)
         self.aggregate = nn.Linear(num_llm_layers, 1)
 
     def forward(self, x):
@@ -106,7 +122,7 @@ class SharedClassifierEnsemble(nn.Module):
         return result
     
 class DifferentClassifierEnsemble(nn.Module):
-    def __init__(self, num_llm_layers, input_size, output_size, activation_fun):
+    def __init__(self, num_llm_layers, input_size, output_size, activation_fun, final_classifier_non_linear=False):
         super().__init__()
         
         self.num_llm_layers = num_llm_layers
@@ -116,7 +132,7 @@ class DifferentClassifierEnsemble(nn.Module):
         
         # Create a separate classifier for each layer, for parallel execution 
         self.layer_classifiers = nn.ModuleList([
-            nn.Linear(input_size, output_size) for _ in range(num_llm_layers)
+            FinalClassifier(input_size, output_size, activation_fun, final_classifier_non_linear) for _ in range(num_llm_layers)
         ])
         # Each classifier will output a single value for each layer
         self.aggregate = nn.Linear(num_llm_layers, 1)
@@ -135,20 +151,22 @@ class DifferentClassifierEnsemble(nn.Module):
         return result
 
 class DirectClassifier(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, activation_fun, final_classifier_non_linear=False):
         super().__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.classifier = nn.Linear(input_size, output_size)
+        self.classifier = FinalClassifier(input_size, output_size, activation_fun, final_classifier_non_linear)
     
     def forward(self, x):
         #x = [batch, input]
-        result = self.classifier(x.flatten(-2,-1))
+        if len(x.shape) == 3:
+            x = x.flatten(-2,-1)
+        result = self.classifier(x)
         return result
 
-class LayerComparisionClassifier(nn.Module):
+class LayerComparisonClassifier(nn.Module):
     
-    def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size, comparison_method, aggregation_method):
+    def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size, comparison_method, aggregation_method, final_classifier_non_linear=False):
         super().__init__()
         
         self.num_llm_layers = num_llm_layers
@@ -199,7 +217,7 @@ class LayerComparisionClassifier(nn.Module):
                 raise Exception("Shared classifier ensemble cannot be used with single layer comparison methods")
             else: 
                 aggregation_input_size = num_llm_layers
-            self.aggregator = SharedClassifierEnsemble(num_llm_layers,aggregation_input_size, output_size, nn.ReLU())
+            self.aggregator = SharedClassifierEnsemble(num_llm_layers,aggregation_input_size, output_size, nn.ReLU(), final_classifier_non_linear)
             
         elif aggregation_method == "different_classifiers_ensemble":
             if comparison_method == "no_comparison":
@@ -208,7 +226,7 @@ class LayerComparisionClassifier(nn.Module):
                 raise Exception("Different classifier ensemble cannot be used with single layer comparison methods")
             else: 
                 aggregation_input_size = num_llm_layers
-            self.aggregator = DifferentClassifierEnsemble(num_llm_layers,aggregation_input_size , output_size, nn.ReLU())
+            self.aggregator = DifferentClassifierEnsemble(num_llm_layers,aggregation_input_size , output_size, nn.ReLU(), final_classifier_non_linear)
         elif aggregation_method == "flattend_aggregation":
             
             if comparison_method == "no_comparison":
@@ -217,7 +235,7 @@ class LayerComparisionClassifier(nn.Module):
                 aggregation_input_size = num_llm_layers
             else: 
                 aggregation_input_size = num_llm_layers * num_llm_layers
-            self.aggregator = DirectClassifier(aggregation_input_size, output_size)
+            self.aggregator = DirectClassifier(aggregation_input_size, output_size, nn.ReLU(), final_classifier_non_linear)
         
         
         if self.comparer is None:
@@ -225,6 +243,7 @@ class LayerComparisionClassifier(nn.Module):
         if self.aggregator is None:
             raise ValueError(f"Invalid aggregation method: {aggregation_method}")
         
+        print("no_init coded down")
 
     def forward(self, x, return_encoded_space=False):
         #encode_x 
@@ -279,50 +298,24 @@ if __name__ == "__main__":
     comparison_methods = ["no_comparison", "dot_product", "euclidean_norm", "manhatten", "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"]
     aggregation_methods = ["shared_classifier_ensemble", "different_classifiers_ensemble", "flattend_aggregation"]
     
-    for comparison_method in comparison_methods:
-        x = torch.randn(batch_size, layer_size, embedding_size)
-        if comparison_method == "cosine":
-            comparer = cosine_similarity
-        elif comparison_method == "dot_product":
-            comparer = dot_product
-        elif comparison_method == "manhatten":
-            comparer = manhatten_norm
-        elif comparison_method == "euclidean_norm":
-            comparer = euclidean_norm
-        elif comparison_method == "manhatten_distance":
-            comparer = manhatten_distance
-        elif comparison_method == "pairwise_dot_product":
-            comparer = pairwise_dot_product
-        elif comparison_method == "euclidean_distance":
-            comparer = euclidean_distance
-        elif comparison_method == "no_comparison":
-            comparer = no_comparison
-        comparison = comparer(x)
-        print(f"Comparison method: {comparison_method}, Output shape: {comparison.shape}")
-    """
+    
     for comparison_method in comparison_methods:
         for aggregation_method in aggregation_methods:
-            model = LayerComparisionClassifier(layer_depth=depth, 
-                                               embedding_size=embedding_size, 
-                                               num_llm_layers=layer_size, 
-                                               output_size=output_size, 
-                                               comparison_method=comparison_method, 
-                                               aggregation_method=aggregation_method)
-            # Dummy input
-            x = torch.randn(batch_size, layer_size, embedding_size)
-            output, _ = model(x)
-            print(output.shape)
-         
-    model = LayerComparisionClassifier(layer_depth=depth, 
-                                               embedding_size=embedding_size, 
-                                               num_llm_layers=layer_size, 
-                                               output_size=output_size, 
-                                               comparison_method="euclidean", 
-                                               aggregation_method="shared_classifier_ensemble")
-    
-    # Dummy input
-    x = torch.randn(batch_size, layer_size, embedding_size)
-    output, _ = model(x)
-    print(output.shape)
-    """
-    
+            for linearity in [True, False]:
+                print(f"Testing {comparison_method} with {aggregation_method} and final_classifier_non_linear={linearity}")
+                # Create the model
+                try:
+                    model = LayerComparisonClassifier(layer_depth=depth, 
+                                                       embedding_size=embedding_size, 
+                                                       num_llm_layers=layer_size, 
+                                                       output_size=output_size, 
+                                                       comparison_method=comparison_method, 
+                                                       aggregation_method=aggregation_method,
+                                                       final_classifier_non_linear=linearity)
+                    # Dummy input
+                    x = torch.randn(batch_size, layer_size, embedding_size)
+                    output, _ = model(x)
+                    print(output.shape)
+                except Exception as e:
+                    print(f"Error: {e}")
+        

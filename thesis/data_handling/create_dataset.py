@@ -138,7 +138,7 @@ def create_classification_dataset(cfg):
     
     combined_dataset = ConcatDataset([original_dataset, transformed_dataset])
     model_name = model_id[model_id.rfind("/")+1:]
-    torch.save(combined_dataset,f"thesis/data/datasets/embeddings/embedding_{model_name}_{cfg.benchmark.name}.pth")
+    torch.save(combined_dataset,f"/mnt/vast-gorilla/martin.preiss/datasets/last_token/embedding_{model_name}_{cfg.benchmark.name}.pth")
 
 def create_positional_dataset(cfg):
     

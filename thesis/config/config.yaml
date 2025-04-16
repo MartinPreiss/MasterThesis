@@ -1,7 +1,7 @@
 defaults:
   - benchmark: refact
-  - llm: gemma_small
-  - model: layer_fusion 
+  - llm: llama_3.1_8.yaml
+  - model: layer_comparison_classifier 
   - task: ???
 
 
@@ -15,7 +15,7 @@ wandb:
 #dataset
 
 seed: 42
-
+use_network_mounted: False
 
 #dataset
 pca:

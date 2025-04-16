@@ -42,19 +42,19 @@ def convert_onehot2bioes(tensor):
     
     breaks = torch.where(torch.diff(one_indices) != 1,True,False)  
     start = 0
-    tuples = []
+    groups = []
     for i in range(len(breaks)):
         if breaks[i]:
-            tuples.append((start,i))
+            groups.append((start,i))
             start = i+1
-            tuples.append((start,len(breaks)))
+            groups.append((start,len(breaks)))
         else: 
             continue
     
     bio_values = torch.ones(one_indices.shape[-1])
-    for tuple in tuples: 
-        start  = tuple[0]
-        end = tuple[1]
+    for group in groups: 
+        start  = group[0]
+        end = group[1]
         if start == end:
             bio_values[start] = 4
         else: 
@@ -72,8 +72,6 @@ def convert_onehot2bioes(tensor):
 def convert_onehot2tagging_scheme(tensor,tag_scheme="BIO"):
     #check wether tensor is only filled with 0,1s 
     
-    #check wether tensor is not only of length 1 or 0
-    #assert tensor.shape[-1] != 1 or tensor.shape[-1] != 0
     
     if tag_scheme == "IO":
         return tensor
@@ -88,6 +86,9 @@ def convert_tagging2onehot(tensor):
     tensor[non_zero_indices] = 1
     
     return tensor
+
+def viterbi_deoding(tensor,token_dist):
+    pass
     
     
 if __name__ == "__main__":

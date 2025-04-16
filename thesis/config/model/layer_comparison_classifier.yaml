@@ -1,0 +1,9 @@
+name: layer_comparison_classifier 
+pretrained_model_path: None
+
+## Model parameters
+num_classes: 1
+comparison_method: None
+aggregation_method: None
+final_classifier_non_linear: None
+layer_depth: 0

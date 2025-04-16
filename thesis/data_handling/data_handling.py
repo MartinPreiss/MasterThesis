@@ -10,7 +10,13 @@ from thesis.data_handling.benchmark import get_df
 
 def get_embedding_dataset(cfg):
     model_name = cfg.llm.name[cfg.llm.name.rfind("/")+1:]
-    dataset = torch.load(f"/mnt/vast-gorilla/martin.preiss/datasets/last_token/embedding_{model_name}_{cfg.benchmark.name}.pth",weights_only=False,map_location=torch.device('cpu'))   
+    if cfg.use_network_mounted:
+        dataset_path = f"/mnt/vast-gorilla/martin.preiss/datasets/last_token/"
+    else:
+        dataset_path = f"/home/martin.preiss/MasterThesis/thesis/data/datasets/embeddings/"
+    print("loading dataset from",dataset_path)
+
+    dataset = torch.load(f"{dataset_path}embedding_{model_name}_{cfg.benchmark.name}.pth",weights_only=False)#,map_location=torch.device('cpu'))   
     if cfg.pca.use_pca:
         raise(Exception("WARNING: PCA not only performed on test set")) 
         dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)

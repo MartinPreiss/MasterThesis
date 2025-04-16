@@ -313,7 +313,31 @@ def average_earlystopping(cfg : DictConfig):
             "std_f1": f1s.std(),
         }
     )
-        
+
+    #save tensors 
+    
+    path= "./thesis/data/avgs_early_stopping"
+    benchmark_name = cfg.benchmark.name
+    model_name = cfg.model.name
+    contrastive_loss = cfg.task.training_params.use_contrastive_loss
+
+    if cfg.model.name == "layer_comparison_classifier":
+        # load important parameters out of config 
+        num_classes = cfg.model.num_classes
+        comparison_method = cfg.model.comparison_method
+        aggregation_method = cfg.model.aggregation_method
+        final_classifier_non_linear = cfg.model.final_classifier_non_linear
+        layer_depth = cfg.model.layer_depth
+
+        file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
+    
+    else:
+        file_name = f"{model_name}_{benchmark_name}_{cfg.task.training_params.patience}"
+    torch.save(accs, f"{path}/{file_name}_accs.pth")
+    torch.save(precs, f"{path}/{file_name}_precs.pth")
+    torch.save(recs, f"{path}/{file_name}_recs.pth")
+    torch.save(f1s, f"{path}/{file_name}_f1s.pth")
+    
         
         
     
