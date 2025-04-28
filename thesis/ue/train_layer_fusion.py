@@ -15,6 +15,7 @@ import wandb
 import datetime
 
 from tqdm import tqdm
+import os
 
 warnings.filterwarnings("always")
 
@@ -51,6 +52,7 @@ def train(cfg,model, train_loader, val_loader):
             inputs, labels = (
                 data  # Assuming your dataset returns input features and labels# Move inputs and labels to the device (CPU or GPU)
             )
+            
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
             # Forward pass
@@ -73,16 +75,17 @@ def train(cfg,model, train_loader, val_loader):
         all_preds = []
         all_labels = []
         val_loss = 0
+        
         for i, data in enumerate(val_loader, 0):
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
                 val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
                 if cfg.task.training_params.use_contrastive_loss:
-                    val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
+                    batch_val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
                 else:
-                    val_loss = classification_loss(val_outputs, labels)
-                val_loss += loss.item()
+                    batch_val_loss = classification_loss(val_outputs, labels)
+                val_loss += batch_val_loss.item()
                 all_preds.append(val_outputs)
                 all_labels.append(labels)
         val_loss /= len(val_loader)
@@ -142,7 +145,7 @@ def train(cfg,model, train_loader, val_loader):
                     val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
                 else:
                     val_loss = classification_loss(val_outputs, labels)
-                val_loss += loss.item()
+                val_loss += val_loss.item()
                 all_preds.append(val_outputs)
                 all_labels.append(labels)
         val_loss /= len(val_loader)
@@ -155,17 +158,17 @@ def train(cfg,model, train_loader, val_loader):
         acc, prec, rec, f1 = calculate_metrics(
             preds=all_preds, labels=all_labels
         )
-        
-        wandb.log(
-            data={
-                "ckpt_loss":val_loss,
-                "ckpt_acc": acc,
-                "ckpt_precision": prec,
-                "ckpt_recall": rec,
-                "ckpt_f1": f1,
-                "early_stopping_epoch":epoch
-            }
-        )
+        if cfg.wandb.use_wandb:
+            wandb.log(
+                data={
+                    "ckpt_loss":val_loss,
+                    "ckpt_acc": acc,
+                    "ckpt_precision": prec,
+                    "ckpt_recall": rec,
+                    "ckpt_f1": f1,
+                    "early_stopping_epoch":epoch
+                }
+            )
         
     # Save the model checkpoint
     if cfg.task.training_params.save_model:
@@ -268,6 +271,31 @@ def get_validation_metrics(cfg,model,val_loader):
 def average_earlystopping(cfg : DictConfig):
     
     init_wandb(cfg)
+
+    
+    
+    path= "./thesis/data/avgs_early_stopping"
+    benchmark_name = cfg.benchmark.name
+    model_name = cfg.model.name
+    contrastive_loss = cfg.task.training_params.use_contrastive_loss
+
+    if cfg.model.name == "layer_comparison_classifier":
+        # load important parameters out of config 
+        num_classes = cfg.model.num_classes
+        comparison_method = cfg.model.comparison_method
+        aggregation_method = cfg.model.aggregation_method
+        final_classifier_non_linear = cfg.model.final_classifier_non_linear
+        layer_depth = cfg.model.layer_depth
+
+        file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
+    
+    else:
+        file_name = f"{model_name}_{benchmark_name}_{cfg.task.training_params.patience}"
+    
+    if os.path.exists(f"{path}/{file_name}_f1s.pth"): 
+        print("File already exists, skipping")
+        return
+
     # Load the dataset
     dataset = get_embedding_dataset(cfg)
     
@@ -289,7 +317,7 @@ def average_earlystopping(cfg : DictConfig):
             train_loader=train_loader,
             val_loader=val_loader,
         )
-        acc, prec, rec, f1 = get_validation_metrics(cfg,model,val_loader)
+        acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
         accs.append(acc)
         precs.append(prec)
         recs.append(rec)
@@ -300,39 +328,23 @@ def average_earlystopping(cfg : DictConfig):
     precs = torch.Tensor(precs)
     recs = torch.Tensor(recs)
     f1s = torch.Tensor(f1s)
-    
-    wandb.log(
-        data={
-            "avg_acc": accs.mean(),
-            "avg_precision": precs.mean(),
-            "avg_recall": recs.mean(),
-            "avg_f1": f1s.mean(),
-            "std_acc": accs.std(),
-            "std_precision": precs.std(),
-            "std_recall": recs.std(),
-            "std_f1": f1s.std(),
-        }
-    )
+    if cfg.wandb.use_wandb:
+        wandb.log(
+            data={
+                "avg_acc": accs.mean(),
+                "avg_precision": precs.mean(),
+                "avg_recall": recs.mean(),
+                "avg_f1": f1s.mean(),
+                "std_acc": accs.std(),
+                "std_precision": precs.std(),
+                "std_recall": recs.std(),
+                "std_f1": f1s.std(),
+            }
+        )
 
     #save tensors 
-    
-    path= "./thesis/data/avgs_early_stopping"
-    benchmark_name = cfg.benchmark.name
-    model_name = cfg.model.name
-    contrastive_loss = cfg.task.training_params.use_contrastive_loss
 
-    if cfg.model.name == "layer_comparison_classifier":
-        # load important parameters out of config 
-        num_classes = cfg.model.num_classes
-        comparison_method = cfg.model.comparison_method
-        aggregation_method = cfg.model.aggregation_method
-        final_classifier_non_linear = cfg.model.final_classifier_non_linear
-        layer_depth = cfg.model.layer_depth
-
-        file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
     
-    else:
-        file_name = f"{model_name}_{benchmark_name}_{cfg.task.training_params.patience}"
     torch.save(accs, f"{path}/{file_name}_accs.pth")
     torch.save(precs, f"{path}/{file_name}_precs.pth")
     torch.save(recs, f"{path}/{file_name}_recs.pth")

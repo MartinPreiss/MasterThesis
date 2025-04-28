@@ -1,6 +1,6 @@
 name: average_earlystopping
 
-number_of_runs: 1000
+number_of_runs: 10
 
 #method 
 training_params:
