@@ -29,8 +29,8 @@ def get_all_pos_embeddings(hooks):
     for hook in hooks:
         embeddings.append(hook.data.cpu())  # postprocess (hook only saves last token )     
         hook.clear_hook()
-        
-    return torch.cat(embeddings)
+    embeddings = torch.cat(embeddings).permute(1,0,2) #swap dimensions [1,2,3] -> [2,1,3]
+    return embeddings
 
 def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_output:str):
     
@@ -78,6 +78,7 @@ def save_positional_embeddings(qa_df,model,tokenizer,hooks,dataset_path):
     
         #get label
         labels = torch.zeros_like(input_ids["input_ids"]) #all correct
+        labels = labels.permute(1,0) #swap dimensions 
         torch.save(internal_embeddings,f"{dataset_path}/embeddings_{index}.pth")
         torch.save(labels,f"{dataset_path}/labels_{index}.pth")
         
@@ -104,12 +105,12 @@ def save_positional_embeddings(qa_df,model,tokenizer,hooks,dataset_path):
         labels = torch.zeros_like(input_ids["input_ids"])
         for (start,end),tag in tokenized_tag_info:
             labels[0,start:end] = 1
-            
+        labels = labels.permute(1,0) #swap dimensions 
         
         #quality assurance (compare tokens with labels)
         tokens = tokenizer.convert_ids_to_tokens(input_ids["input_ids"][0])
-        assert len(tokens) == len(labels[0])
-        positive_tokens_list = [tokens[i] for i in range(len(tokens)) if labels[0,i] == 1]
+        assert len(tokens) == labels.shape[0]
+        positive_tokens_list = [tokens[i] for i in range(len(tokens)) if labels[i,0] == 1]
         positive_tokens = " ".join(positive_tokens_list)
         #save positive_tokens to file
         with open(f"{dataset_path}/positive_tokens_{index}.txt","w") as f:

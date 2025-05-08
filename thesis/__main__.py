@@ -6,10 +6,11 @@ from thesis.ue.train_per_layer import train_per_layer
 from thesis.ue.continue_learning import continue_learning
 from thesis.ue.train_log_reg import train_log_reg
 from thesis.ue.train_layer_fusion import train_layer_fusion, average_earlystopping
+from thesis.ue.train_positional_layer_fusion import train_positional_layer_fusion
 from thesis.data_handling.create_dataset import create_classification_dataset,create_positional_dataset
 from thesis.ue.test_on_benchmarks import test_on_benchmarks
 from thesis.utils import print_cuda_info
-from thesis.baselines.baseline import evaluate_baseline
+#from thesis.baselines.baseline import evaluate_baseline
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig):
@@ -22,7 +23,8 @@ def main(cfg: DictConfig):
         "create_positional_dataset": create_positional_dataset,
         "test_on_benchmarks": test_on_benchmarks,
         "average_earlystopping": average_earlystopping,
-        "evaluate_baseline": evaluate_baseline,
+        "train_positional_layer_fusion": train_positional_layer_fusion,
+        #"evaluate_baseline": evaluate_baseline,
         "playground": playground
     }
 
@@ -30,6 +32,8 @@ def main(cfg: DictConfig):
     options[cfg.task.name](cfg)
 
 def playground(cfg):
+
+    """
     from thesis.baselines.baseline import SelfCheckGPT
     #perform small check
     model_id = "google/gemma-2-9b-it"
@@ -37,7 +41,7 @@ def playground(cfg):
     answer = "The capital of France is Berlin."
     scg = SelfCheckGPT()
     scg.detect(model_id,question,answer)
-    
+    """
     """
     from thesis.xai.pca_analysis import main as pca_main,pca_per_layer
     pca_per_layer(cfg)

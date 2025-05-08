@@ -3,7 +3,7 @@ pretrained_model_path: None
 
 ## Model parameters
 num_classes: 1
-comparison_method: None
-aggregation_method: None
-final_classifier_non_linear: None
-layer_depth: 0
+comparison_method: cosine
+aggregation_method: flattend_aggregation
+final_classifier_non_linear: False
+layer_depth: 2

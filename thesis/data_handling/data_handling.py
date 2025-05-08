@@ -6,6 +6,24 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from thesis.utils import get_device
 from thesis.data_handling.benchmark import get_df
+import re
+
+from thesis.data_handling.locate import convert_onehot2tagging_scheme
+
+from torch.nn.utils.rnn import pad_sequence
+
+def train_collate_fn(batch):
+    # Separate inputs and labels
+    inputs, labels = zip(*batch)
+    """
+    # Pad inputs to the same length
+    inputs_padded = pad_sequence(inputs, batch_first=True)
+    # Stack labels (assuming labels are already of the same size)
+    labels_padded = pad_sequence(labels, batch_first=True)
+    """
+    inputs_concat = torch.cat(inputs, dim=0)
+    labels_concat = torch.cat(labels, dim=0).squeeze()
+    return inputs_concat, labels_concat
 
 
 def get_embedding_dataset(cfg):
@@ -25,7 +43,16 @@ def get_embedding_dataset(cfg):
         
     return dataset
 
-def get_refact_split(cfg,Y,test_val_size):
+def get_positional_dataset(cfg): 
+    model_name = cfg.llm.name[cfg.llm.name.rfind("/")+1:]
+    dataset_path = f"/mnt/vast-gorilla/martin.preiss/datasets/positions/embedding_{model_name}_{cfg.benchmark.name}/"
+    print("loading dataset from",dataset_path)
+
+    dataset = PositionalDataset(dataset_path,cfg.task.tag_scheme)
+
+    return dataset
+
+def get_refact_split(cfg,test_val_size):
     #get original id
     df = get_df(cfg)    
     df["id"] = df.apply(lambda row: row["unique_row_id"][:row["unique_row_id"].find(".")],axis=1)
@@ -61,62 +88,45 @@ def print_label_data(y, split_type="total"):
     print(f"Percentage of {split_type} negative samples {num_negative / len(y):.2f}")
 
 def perform_train_val_test_split(cfg,dataset):
-    
-    #prepare for dataset_spliting
-    X = torch.stack([dataset[i][0] for i in range(len(dataset))])
-    Y = torch.stack([dataset[i][1] for i in range(len(dataset))])
-    
+        
     # Split the dataset
     data_size = len(dataset)
+    train_ratio = 0.7
     train_size = int(0.7 * data_size)
     test_val_size = data_size - train_size 
-    x_indices = list(range(X.shape[0]))
+    x_indices = list(range(data_size))
     #split indices (sklearn cant handle shapes greater than 3 :) ) 
     
     len_first_half = len(x_indices)//2
     if cfg.benchmark.name == "refact":
-        x_indices = get_refact_split(cfg,Y,test_val_size)
-        train_indices, val_indices, test_indices = x_indices
+        train_indices, val_indices, test_indices = get_refact_split(cfg,test_val_size)
+    
     else:
         #first half
-        indices_first_half = x_indices[:len_first_half]
-        Y_first_half = Y[:len_first_half]
-        train_indices, X_temp, _, y_temp = train_test_split(indices_first_half, Y_first_half, test_size=test_val_size, stratify=Y_first_half, random_state=cfg.seed)
-        val_indices, test_indices, _, _ = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=cfg.seed)
-        
+        train_indices, temp_indices = train_test_split(
+            x_indices[:len_first_half], train_size=train_ratio, stratify=None, random_state=cfg.seed
+        )
+        val_indices, test_indices = train_test_split(
+            temp_indices, test_size=0.5, stratify=None, random_state=cfg.seed
+        )
     #get other half
         #get other half
     train_indices.extend([id+len_first_half for id in train_indices])
     val_indices.extend([id+len_first_half for id in val_indices])
     test_indices.extend([id+len_first_half for id in test_indices])
     
-    #make tensors 
-    train_indices = torch.tensor(train_indices)
-    val_indices = torch.tensor(val_indices)
-    test_indices = torch.tensor(test_indices)
-    
-    #get y_data
-    y_train = torch.index_select(Y, 0, train_indices)
-    y_val = torch.index_select(Y, 0, val_indices)
-    y_test = torch.index_select(Y, 0, test_indices)
 
+    # Create subsets for train, val, and test
+    train_dataset = torch.utils.data.Subset(dataset, train_indices)
+    val_dataset = torch.utils.data.Subset(dataset, val_indices)
+    test_dataset = torch.utils.data.Subset(dataset, test_indices)
 
-    #create torch_datasets
-    train_dataset = TensorDataset(torch.index_select(X.cpu(), 0, train_indices.cpu()),y_train)
-    val_dataset = TensorDataset(torch.index_select(X.cpu(), 0, val_indices.cpu()),y_val)
-    test_dataset = TensorDataset(torch.index_select(X.cpu(), 0, test_indices.cpu()),y_test)
-    
-    
-    #print some statistics 
-    print("Dataset Size", data_size)
-    print("Trainset Size", train_size)
-    print("Valset Size", len(val_dataset))
-    print("Testset Size", len(test_dataset))
-    print_label_data(Y)
-    print_label_data(y_train,"y_train")
-    print_label_data(y_val,"y_val")
-    print_label_data(y_test,"y_test")
-    
+    # Print some statistics
+    print("Dataset Size:", data_size)
+    print("Trainset Size:", len(train_dataset))
+    print("Valset Size:", len(val_dataset))
+    print("Testset Size:", len(test_dataset))
+
     return train_dataset, val_dataset, test_dataset
 
 def get_dataloaders(cfg,dataset):
@@ -125,9 +135,9 @@ def get_dataloaders(cfg,dataset):
 
     # Create DataLoaders for training and validation
     batch_size = cfg.task.training_params.batch_size
-    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=4, pin_memory=True)
-    test_loader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False,num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=train_collate_fn)
+    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=train_collate_fn)
+    test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False,num_workers=0, pin_memory=False)
     
     return train_loader, val_loader, test_loader
 
@@ -195,13 +205,16 @@ class CovEigDataset(Dataset):
         return self.data[idx], self.labels[idx]    
 
 class PositionalDataset(Dataset):
-    def __init__(self, path):
+    def __init__(self, path, tag_scheme):
         self.dataset_path = path
+        self.tag_scheme = tag_scheme
     
     def __len__(self):
-        return len((os.listdir(self.dataset_path))) // 2  # Assuming each embedding has a corresponding label file
-
+        # count number of files in the dataset directory with the prefix "embedding_"
+        number_of_files = len([f for f in os.listdir(self.dataset_path) if f.startswith("embeddings_")])
+        print("Number of files in dataset:", number_of_files)
+        return number_of_files 
     def __getitem__(self, idx):
-        pos_embeddings = torch.load(f"{self.dataset_path}/embeddings_{idx}.pth")
-        labels = torch.load(f"{self.dataset_path}/labels_{idx}.pth")
+        pos_embeddings = torch.load(f"{self.dataset_path}embeddings_{idx}.pth")
+        labels = convert_onehot2tagging_scheme(torch.load(f"{self.dataset_path}labels_{idx}.pth"),tag_scheme=self.tag_scheme)
         return pos_embeddings, labels 

@@ -24,7 +24,10 @@ def convert_onehot2bio(tensor):
     
     bio_tensor = torch.zeros(tensor.shape)
     bio_tensor[one_indices] = bio_values
-                
+
+    #map to class vectors 
+    bio_tensor = torch.nn.functional.one_hot(bio_tensor.long(), num_classes=3).float()
+
     return bio_tensor
 
 def convert_onehot2bioes(tensor):
@@ -65,6 +68,8 @@ def convert_onehot2bioes(tensor):
     bio_tensor = torch.zeros(tensor.shape)
     bio_tensor[one_indices] = bio_values
     
+    
+    bio_tensor = torch.nn.functional.one_hot(bio_tensor.long(), num_classes=5).float()
     return bio_tensor
 
     
@@ -74,7 +79,7 @@ def convert_onehot2tagging_scheme(tensor,tag_scheme="BIO"):
     
     
     if tag_scheme == "IO":
-        return tensor
+        return  torch.nn.functional.one_hot(tensor.long(), num_classes=2).float()
     elif tag_scheme == "BIO":
         return convert_onehot2bio(tensor)
     elif tag_scheme == "BIOES":
