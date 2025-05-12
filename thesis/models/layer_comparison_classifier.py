@@ -173,6 +173,7 @@ class LayerComparisonClassifier(nn.Module):
         self.embedding_size = embedding_size
         self.layer_depth = layer_depth 
         self.comparison_method = comparison_method 
+        self.output_size = output_size
         
         self.name = f"LCC_{layer_depth}_{comparison_method}_{aggregation_method}"
     
@@ -282,8 +283,30 @@ class LayerComparisonClassifier(nn.Module):
         ax.set_ylabel('Weight Value')
         wandb.log({"sum_fusion_weights":wandb.Image(fig)})
     
-    def freeze_last_layers(self):
-        self.aggregator.requires_grad = False
+    def freeze_aggregator(self):
+        for param in self.aggregator.parameters():
+            param.requires_grad = False
+
+    
+    def load_classifier_weights(self, path_layer_comparison_classifier, path_crf=None):
+        print("Loading classifier weights from", path_layer_comparison_classifier)
+
+        state_dict = torch.load(path_layer_comparison_classifier)
+
+
+        # output classes missmatch of last layer 
+        # need to broadcast single tensor to correct output size
+        state_dict["aggregator.classifier.classifier.weight"] = state_dict["aggregator.classifier.classifier.weight"].repeat(self.output_size,1 )
+
+        state_dict["aggregator.classifier.classifier.bias"] = state_dict["aggregator.classifier.classifier.bias"].repeat(self.output_size)
+        super().load_state_dict(state_dict, strict=False)
+
+        #print("freezing aggregator") 
+        #self.freeze_aggregator()
+
+        if path_crf is not None:
+            print("Loading CRF weights from", path_crf)
+            self.crf.load_state_dict(torch.load(path_crf))
 
 class CRFAggregator(nn.Module):
     def __init__(self, num_classes):
@@ -293,7 +316,9 @@ class CRFAggregator(nn.Module):
     def forward(self, emissions, tags=None, mask=None):
         if tags is not None:
             # Compute the negative log-likelihood loss
-            return -self.crf(emissions, torch.argmax(tags,dim=-1).squeeze(-1), mask)
+            neg_log_likelihood = -self.crf(emissions, torch.argmax(tags,dim=-1).squeeze(-1), mask)
+            cross_entropy_loss = torch.nn.functional.cross_entropy(emissions.view((emissions.shape[0]*emissions.shape[1],emissions.shape[2])), tags.view((emissions.shape[0]*emissions.shape[1],emissions.shape[2])).squeeze(-2))
+            return neg_log_likelihood + cross_entropy_loss
         else:
             # Decode the most likely sequence
             return self.crf.decode(emissions)

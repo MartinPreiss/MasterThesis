@@ -53,9 +53,19 @@ def train(cfg,model, train_loader, val_loader):
                 data  # Assuming your dataset returns input features and labels# Move inputs and labels to the device (CPU or GPU)
             )
             
+            
             inputs, labels = inputs.to(device), labels.to(device)
+
+            batch_size = inputs.shape[0]
+            seq_length = inputs.shape[1]
+            num_llm_layers = inputs.shape[2]
+            embedding_size = inputs.shape[3]
+            inputs = inputs.view(batch_size * seq_length, num_llm_layers, embedding_size)
+            labels = labels.view(batch_size * seq_length, -1).squeeze()
+
             optimizer.zero_grad()
             # Forward pass
+            
             outputs , encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
             class_loss = classification_loss(outputs, labels)
             if cfg.task.training_params.use_contrastive_loss:
@@ -64,6 +74,7 @@ def train(cfg,model, train_loader, val_loader):
             loss =  class_loss + contrast_loss
             # Backward pass and optimization
             loss.backward()
+
             optimizer.step()
             # Log the loss
             running_loss += loss.item()
@@ -76,6 +87,12 @@ def train(cfg,model, train_loader, val_loader):
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
+                batch_size = inputs.shape[0]
+                seq_length = inputs.shape[1]
+                num_llm_layers = inputs.shape[2]
+                embedding_size = inputs.shape[3]
+                inputs = inputs.view(batch_size * seq_length, num_llm_layers, embedding_size)
+                labels = labels.view(batch_size * seq_length, -1).squeeze()
                 val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
                 if cfg.task.training_params.use_contrastive_loss:
                     batch_val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
@@ -113,6 +130,12 @@ def train(cfg,model, train_loader, val_loader):
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
+                batch_size = inputs.shape[0]
+                seq_length = inputs.shape[1]
+                num_llm_layers = inputs.shape[2]
+                embedding_size = inputs.shape[3]
+                inputs = inputs.view(batch_size * seq_length, num_llm_layers, embedding_size)
+                labels = labels.view(batch_size * seq_length, -1).squeeze()
                 val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
                 if cfg.task.training_params.use_contrastive_loss:
                     val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
@@ -178,9 +201,12 @@ def train_with_crf(cfg,model, train_loader, val_loader):
             # Backward pass and optimization
             loss.backward()
 
-            for name, param in model.named_parameters():
-                if param.grad is None:
-                    print(f"No gradient for {name}")
+            
+
+            #print gradients
+            #for name, param in model.named_parameters():
+            #    print(f"{name} grad: {param.grad}")
+
             optimizer.step()
             # Log the loss
             running_loss += loss.item()
@@ -259,13 +285,11 @@ def train_positional_layer_fusion(cfg : DictConfig):
     cfg.model.num_classes = num_output_classes
     
     model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
-        device
-    )
+        device)
 
     
     if cfg.task.use_pretrained: 
-        model.load_state_dict(torch.load(cfg.model.pretrained_model_path))
-        model.freeze_last_layers()
+        model.load_classifier_weights(cfg.model.pretrained_model_path)
 
     print_number_of_parameters(model)
 

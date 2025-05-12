@@ -1,5 +1,6 @@
 name: layer_comparison_classifier 
-pretrained_model_path: None
+pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_11_39__12_05_2025.pth
+
 
 ## Model parameters
 num_classes: 1
