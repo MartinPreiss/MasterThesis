@@ -1,0 +1,9 @@
+name: lcc_with_crf
+pretrained_model_path: None
+
+## Model parameters
+num_classes: 1
+comparison_method: cosine
+aggregation_method: flattend_aggregation
+final_classifier_non_linear: False
+layer_depth: 2

@@ -5,7 +5,7 @@ tag_scheme: IO
 #method 
 training_params:
   learning_rate: 0.001
-  epochs: 100
+  epochs: 1
   batch_size: 100
   weight_decay: 0.01
   
@@ -13,6 +13,6 @@ training_params:
   use_cross_entropy_weighting: False
   save_model: False
   early_stopping: True
-  patience: 10
+  patience: 100
 
 use_pretrained: False

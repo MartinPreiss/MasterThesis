@@ -25,6 +25,16 @@ def train_collate_fn(batch):
     labels_concat = torch.cat(labels, dim=0).squeeze()
     return inputs_concat, labels_concat
 
+def pad_collate_fn(batch):
+    # Separate inputs and labels
+    inputs, labels = zip(*batch)
+    
+    # Pad inputs to the same length
+    inputs_padded = pad_sequence(inputs, batch_first=True)
+    # Stack labels (assuming labels are already of the same size)
+    labels_padded = pad_sequence(labels, batch_first=True)
+
+    return inputs_padded, labels_padded
 
 def get_embedding_dataset(cfg):
     model_name = cfg.llm.name[cfg.llm.name.rfind("/")+1:]
@@ -135,8 +145,8 @@ def get_dataloaders(cfg,dataset):
 
     # Create DataLoaders for training and validation
     batch_size = cfg.task.training_params.batch_size
-    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=train_collate_fn)
-    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=train_collate_fn)
+    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
+    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
     test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False,num_workers=0, pin_memory=False)
     
     return train_loader, val_loader, test_loader
@@ -214,6 +224,7 @@ class PositionalDataset(Dataset):
         number_of_files = len([f for f in os.listdir(self.dataset_path) if f.startswith("embeddings_")])
         print("Number of files in dataset:", number_of_files)
         return number_of_files 
+    
     def __getitem__(self, idx):
         pos_embeddings = torch.load(f"{self.dataset_path}embeddings_{idx}.pth")
         labels = convert_onehot2tagging_scheme(torch.load(f"{self.dataset_path}labels_{idx}.pth"),tag_scheme=self.tag_scheme)

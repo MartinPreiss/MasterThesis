@@ -76,8 +76,6 @@ def convert_onehot2bioes(tensor):
 
 def convert_onehot2tagging_scheme(tensor,tag_scheme="BIO"):
     #check wether tensor is only filled with 0,1s 
-    
-    
     if tag_scheme == "IO":
         return  torch.nn.functional.one_hot(tensor.long(), num_classes=2).float()
     elif tag_scheme == "BIO":
@@ -86,17 +84,16 @@ def convert_onehot2tagging_scheme(tensor,tag_scheme="BIO"):
         return convert_onehot2bioes(tensor)
     
 def convert_tagging2onehot(tensor):
-    non_zero_indices = torch.nonzero(tensor)
-    
-    tensor[non_zero_indices] = 1
-    
-    return tensor
+    if type(tensor) == list:
+        tensor = torch.tensor(tensor)
 
-def viterbi_deoding(tensor,token_dist):
-    pass
+    class_indices = torch.argmax(tensor, dim=-1).squeeze(-1)
+    one_hot = torch.where(class_indices > 0, 1, 0)
     
+    return one_hot
+
     
 if __name__ == "__main__":
     tensors = [torch.tensor([0, 1, 0]), torch.tensor([1, 0,1,1,1,1, 0]), torch.tensor([0, 0, 1,1])]
     for tensor in tensors:
-        print(convert_onehot2tagging_scheme(tensor,"BIOES"))
+        print(convert_tagging2onehot(convert_onehot2tagging_scheme(tensor,"BIOES")))

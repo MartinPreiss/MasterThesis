@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 import wandb 
 from matplotlib import pyplot as plt
-
+from torchcrf import CRF
 
 
 def no_comparison(x):
@@ -257,6 +257,7 @@ class LayerComparisonClassifier(nn.Module):
             #contrastive loss might not work
             return result, encoded_space
         return result, None
+    
 
     def plot_classifier_weights(self):
         
@@ -284,6 +285,37 @@ class LayerComparisonClassifier(nn.Module):
     def freeze_last_layers(self):
         self.aggregator.requires_grad = False
 
+class CRFAggregator(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.crf = CRF(num_classes, batch_first=True)
+
+    def forward(self, emissions, tags=None, mask=None):
+        if tags is not None:
+            # Compute the negative log-likelihood loss
+            return -self.crf(emissions, torch.argmax(tags,dim=-1).squeeze(-1), mask)
+        else:
+            # Decode the most likely sequence
+            return self.crf.decode(emissions)
+
+class LCC_with_CRF(LayerComparisonClassifier): 
+        
+    def __init__(self, *args, num_classes, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.crf = CRFAggregator(num_classes)
+
+    def forward(self, x,contrastive_loss=False, tags=None, mask=None):
+        #x should be [batch, seq_length, num_layers, embedding_size]
+        batch_size = x.shape[0]
+        seq_length = x.shape[1]
+        x = x.view(batch_size * seq_length, self.num_llm_layers, self.embedding_size)
+        result, _ = super().forward(x,contrastive_loss)
+        # Reshape result to [batch_size, seq_length, classes]
+        result = result.view(batch_size, seq_length, -1)
+
+        return self.crf(result, tags, mask)
+
+
 
 if __name__ == "__main__":
     # Example usage
@@ -298,7 +330,7 @@ if __name__ == "__main__":
     comparison_methods = ["no_comparison", "dot_product", "euclidean_norm", "manhatten", "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"]
     aggregation_methods = ["shared_classifier_ensemble", "different_classifiers_ensemble", "flattend_aggregation"]
     
-    
+    """
     for comparison_method in comparison_methods:
         for aggregation_method in aggregation_methods:
             for linearity in [True, False]:
@@ -318,4 +350,23 @@ if __name__ == "__main__":
                     print(output.shape)
                 except Exception as e:
                     print(f"Error: {e}")
-        
+    """
+
+    seq_length = 200
+    model = LCC_with_CRF(
+        layer_depth=depth, 
+        embedding_size=embedding_size, 
+        num_llm_layers=layer_size, 
+        output_size=output_size, 
+        comparison_method="cosine", 
+        aggregation_method="flattend_aggregation",
+        num_classes=5
+    )
+
+    # Dummy input
+    x = torch.randn(batch_size,seq_length, layer_size, embedding_size)
+
+    
+    output = model(x)
+    print(len(output))
+    print(len(output[0]))
