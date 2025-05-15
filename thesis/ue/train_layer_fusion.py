@@ -290,7 +290,8 @@ def average_earlystopping(cfg : DictConfig):
         file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
     
     else:
-        file_name = f"{model_name}_{benchmark_name}_{cfg.task.training_params.patience}"
+        layer_depth = cfg.model.layer_depth
+        file_name = f"{model_name}_{benchmark_name}_{layer_depth}_{cfg.task.training_params.patience}"
     
     if os.path.exists(f"{path}/{file_name}_f1s.pth"): 
         print("File already exists, skipping")

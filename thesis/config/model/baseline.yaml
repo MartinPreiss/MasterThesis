@@ -1,0 +1,5 @@
+name: baseline1
+pretrained_model_path: thesis/data/models/baseline2.pth
+
+num_classes: 1
+layer_depth: 2
