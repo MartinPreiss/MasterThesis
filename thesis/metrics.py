@@ -1,6 +1,7 @@
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, average_precision_score
 import torch 
+import numpy as np
 
 def calculate_metrics(preds, labels):
     if isinstance(preds,torch.Tensor):
@@ -27,3 +28,14 @@ def calculate_score_metrics(scores,labels):
     
     return roc_auc, average_precision
     
+def calculate_iou(preds,labels):
+    # Calculate Intersection over Union (IoU)
+    if isinstance(preds,torch.Tensor):
+        preds = preds.detach().cpu().numpy()
+        labels = labels.detach().cpu().numpy()  # Move labels to CPU and convert to numpy
+
+    intersection = np.logical_and(preds, labels)
+    union = np.logical_or(preds, labels)
+    iou = np.sum(intersection) / np.sum(union)
+    
+    return iou

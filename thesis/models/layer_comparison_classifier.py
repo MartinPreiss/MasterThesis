@@ -307,6 +307,7 @@ class LayerComparisonClassifier(nn.Module):
         if path_crf is not None:
             print("Loading CRF weights from", path_crf)
             self.crf.load_state_dict(torch.load(path_crf))
+    
 
 class CRFAggregator(nn.Module):
     def __init__(self, num_classes):
@@ -316,9 +317,8 @@ class CRFAggregator(nn.Module):
     def forward(self, emissions, tags=None, mask=None):
         if tags is not None:
             # Compute the negative log-likelihood loss
-            neg_log_likelihood = -self.crf(emissions, torch.argmax(tags,dim=-1).squeeze(-1), mask)
-            cross_entropy_loss = torch.nn.functional.cross_entropy(emissions.view((emissions.shape[0]*emissions.shape[1],emissions.shape[2])), tags.view((emissions.shape[0]*emissions.shape[1],emissions.shape[2])).squeeze(-2))
-            return neg_log_likelihood + cross_entropy_loss
+            neg_log_likelihood = -self.crf(emissions, torch.argmax(tags,dim=-1).squeeze(-1))
+            return neg_log_likelihood, emissions
         else:
             # Decode the most likely sequence
             return self.crf.decode(emissions)
@@ -338,7 +338,7 @@ class LCC_with_CRF(LayerComparisonClassifier):
         # Reshape result to [batch_size, seq_length, classes]
         result = result.view(batch_size, seq_length, -1)
 
-        return self.crf(result, tags, mask)
+        return self.crf(result, tags, mask) 
 
 
 
