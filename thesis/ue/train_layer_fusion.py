@@ -274,7 +274,7 @@ def average_earlystopping(cfg : DictConfig):
 
     
     
-    path= "./thesis/data/avgs_early_stopping"
+    path= cfg.task.path_to_save
     benchmark_name = cfg.benchmark.name
     model_name = cfg.model.name
     contrastive_loss = cfg.task.training_params.use_contrastive_loss
@@ -286,8 +286,10 @@ def average_earlystopping(cfg : DictConfig):
         aggregation_method = cfg.model.aggregation_method
         final_classifier_non_linear = cfg.model.final_classifier_non_linear
         layer_depth = cfg.model.layer_depth
+        
+        llm_name = cfg.llm.name[cfg.llm.name.find("/")+1:]
 
-        file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
+        file_name = f"{model_name}_{benchmark_name}_{llm_name}_{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
     
     else:
         layer_depth = cfg.model.layer_depth

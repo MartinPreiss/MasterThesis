@@ -293,7 +293,6 @@ class LayerComparisonClassifier(nn.Module):
 
         state_dict = torch.load(path_layer_comparison_classifier)
 
-
         # output classes missmatch of last layer 
         # need to broadcast single tensor to correct output size
         state_dict["aggregator.classifier.classifier.weight"] = state_dict["aggregator.classifier.classifier.weight"].repeat(self.output_size,1 )

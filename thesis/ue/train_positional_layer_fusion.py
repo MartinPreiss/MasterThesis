@@ -388,6 +388,7 @@ def train_with_crf(cfg,model, train_loader, val_loader):
         print("saving model to ",model_path)
         if cfg.task.training_params.early_stopping:
             torch.save(early_stopping_checkpoint,model_path)
+            
     return model 
 
 def pipelined_training(cfg):

@@ -61,7 +61,10 @@ class StackedLayers(nn.Module):
         
         # Dynamically create hidden layers
         for i in range(layer_depth-1):
-            next_size = current_size // 2  # Halving the size each time
+            if i == 0:
+                next_size = embedding_size
+            else:
+                next_size = current_size // 2  # Halving the size each time
             self.layers.append(nn.Linear(in_features=current_size, out_features=next_size))
             current_size = next_size
 

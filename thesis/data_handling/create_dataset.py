@@ -129,7 +129,7 @@ def create_classification_dataset(cfg):
     tokenizer = AutoTokenizer.from_pretrained(model_id,device_map="auto")
     model = AutoModelForCausalLM.from_pretrained(model_id, output_attentions=True,device_map="auto")
     print(model)
-    print(len(model.model.layers))
+    #print(len(model.model.layers))
     
     #hook layers
     hooks = get_layer_hooks(model)
