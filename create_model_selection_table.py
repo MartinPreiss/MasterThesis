@@ -21,6 +21,82 @@ aggregation_mapping = {
     "flattend_aggregation_False": "Flattened Aggregation (Linear)"
 }
 
+def create_baseline_table(path, layer_depths):
+    baseline_names = ["last_layer", "middle_layer", "stacked_layers", "all_layers_ensemble"]
+    baseline_mapping = {
+        "middle_layer": "MiddleLayer",
+        "last_layer": "LastLayer",
+        "stacked_layers": "StackedLayers",
+        "all_layers_ensemble": "AllLayersEnsemble"
+    }
+    baseline_f1_scores = {name: {depth: None for depth in layer_depths} for name in baseline_names}
+
+    for layer_depth in layer_depths:
+        for baseline_name in baseline_names:
+
+            file_name = f"{baseline_name}_haluleval_{layer_depth}_5_f1s.pth"
+            file_path = os.path.join(path, file_name)
+            
+            if os.path.exists(file_path):
+                baseline_f1_scores[baseline_name][layer_depth] = torch.load(file_path).mean().item()
+            else:
+                print(f"File not found: {file_path}")
+                continue
+    # Generate LaTeX table
+    latex_table = r"""
+\begin{table}[h]
+\begin{tabular}{|l|lllll|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Baseline}} & \multicolumn{5}{c|}{\textbf{Layer Depth}} \ \cline{2-6}
+\multicolumn{1}{|c|}{} & \multicolumn{1}{l|}{1} & \multicolumn{1}{l|}{2} & \multicolumn{1}{l|}{3} & \multicolumn{1}{l|}{4} & \multicolumn{1}{l|}{5} \ \hline
+"""
+    for name, depths in baseline_f1_scores.items():
+        latex_table += f"{baseline_mapping[name]} & " + " & ".join(
+            [f"{depths[depth]:.2f}" if depths[depth] is not None else "" for depth in layer_depths]
+        ) + r" \\ \hline" + "\n"
+    latex_table += r"""
+\end{tabular}
+\caption{F1 Scores of different baseline approaches with multiple layer depths for the text classification task}
+\label{tab:baseline_f1_scores}
+\end{table}
+"""
+    return latex_table      
+
+def create_llm_table(path, comparison_method):
+    llms = ["meta-llama/Llama-3.1-8B-Instruct" ,"google/gemma-3-1b-it" ,"google/gemma-3-4b-it" ,"google/gemma-3-12b-it" ,"google/gemma-3-27b-it" ,"meta-llama/Llama-3.2-1B-Instruct" ,"meta-llama/Llama-3.2-3B-Instruct" ,"meta-llama/Llama-3.3-70B-Instruct"]
+    llms = [llm[llm.rfind("/")+1:] for llm in llms]
+    llm_f1_scores = {llm: 0 for llm in llms}
+    for llm in llms:
+        # example file layer_comparison_classifier_refact_gemma-3-12b-it_1_no_comparison_flattend_aggregation_False_2_False_5_f1s.pth 
+        file_name = f"layer_comparison_classifier_refact_{llm}_1_{comparison_method}_flattend_aggregation_False_2_False_100_f1s.pth"
+        file_path = os.path.join(path, file_name)
+        if os.path.exists(file_path):
+            f1_scores = torch.load(file_path)
+            #filter out f1 scores that are zero 
+            #print("filtered out" + str(f1_scores[f1_scores == 0].shape[0]) + " f1 scores")
+            #f1_scores = f1_scores[f1_scores != 0]
+            llm_f1_scores[llm] = f1_scores.mean().item()
+        else:
+            print(f"File not found: {file_path}")
+
+            continue
+    # Generate LaTeX table
+    latex_table = r"""
+\begin{table}[]
+\begin{tabular}{|l|l|}
+\hline
+\multicolumn{1}{|c|}{\textbf{LLM}} & \textbf{F1 Score} \\ \hline
+"""
+    for llm, score in llm_f1_scores.items():
+        latex_table += f"{llm} & {score:.2f} \\\\ \hline" + "\n"
+    latex_table += r"""
+\end{tabular}
+\caption{F1 Scores for Different LLMs using Comparison Method: """ + comparison_mapping[comparison_method] + r"""}
+\label{tab:llm_f1_scores}
+\end{table}
+"""
+    return latex_table
+
 def load_f1_scores_and_create_table(path,final_classifier, layer_depths, comparison_methods):
     # Initialize a dictionary to store F1 scores
     f1_scores = {method: {depth: None for depth in layer_depths} for method in comparison_methods}
@@ -190,7 +266,7 @@ def print_statistics_of_comparison_methods(path, final_classifiers, layer_depths
 
 if __name__ == "__main__":
     path = "./thesis/data/avgs_early_stopping"
-    layer_depths = [1,2]
+    layer_depths = [1,2,3,4,5]
     comparison_methods = [
         "no_comparison", "dot_product", "euclidean_norm", "manhatten",
         "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"
@@ -214,3 +290,13 @@ if __name__ == "__main__":
 
     print("Statistics of comparison methods")
     print_statistics_of_comparison_methods(path,final_classifiers=final_layer_classifiers,layer_depths=layer_depths,comparison_methods=comparison_methods)
+
+    print("Statistics of baselines")
+    print(create_baseline_table(path, layer_depths))
+
+    print("Statistics of LLMs")
+    print(create_llm_table("./thesis/data/different_llms", comparison_method="no_comparison"))
+    print(create_llm_table("./thesis/data/different_llms", comparison_method="cosine"))
+
+# ./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.3-70B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_f1s.pth
+#./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.1-8B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_recs.pth
