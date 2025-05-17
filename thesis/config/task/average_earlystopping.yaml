@@ -2,6 +2,8 @@ name: average_earlystopping
 
 number_of_runs: 10
 
+path_to_save: ./thesis/data/avgs_early_stopping
+
 #method 
 training_params:
   learning_rate: 0.001

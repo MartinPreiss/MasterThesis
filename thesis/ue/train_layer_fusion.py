@@ -208,9 +208,15 @@ def train_layer_fusion(cfg : DictConfig):
         train_loader=train_loader,
         val_loader=val_loader,
     )
+    
     try:    
-        model.plot_classifier_weights()
-    except:
+        sum_fig = model.plot_classifier_weights() #sum_fig of matplotlib
+        #save to diskspace 
+        llm_name = cfg.llm.name[cfg.llm.name.find("/")+1:]
+        file_name = f"{cfg.model.name}_{cfg.benchmark.name}_{llm_name}_{cfg.model.comparison_method}_{cfg.task.training_params.patience}"
+        sum_fig.savefig(f"./thesis/data/plots/{file_name}_classifier_weights.png")
+    except Exception as e:
+        print(e)
         print("Could not plot classifier weights")
 
 def finetune_layer_fusion(cfg : DictConfig):
@@ -237,7 +243,6 @@ def finetune_layer_fusion(cfg : DictConfig):
         train_loader=train_loader,
         val_loader=val_loader,
     )
-    
     
     try:    
         model.plot_classifier_weights()

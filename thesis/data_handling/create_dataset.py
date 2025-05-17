@@ -56,7 +56,7 @@ def get_embedding_dataset(prompts,model,tokenizer, hooks,true_output:str,wrong_o
             label = 1
         else:
             print("FAILED for decoded text",decoded_text)
-            continue
+            label = 1
         
         labels.append(label)
         sample_embeddings.append(embeddings)

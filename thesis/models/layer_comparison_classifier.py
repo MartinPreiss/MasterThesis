@@ -180,6 +180,7 @@ class LayerComparisonClassifier(nn.Module):
         self.feature_extractor = MLPEncoder(embedding_size, nn.ReLU(), num_layers=layer_depth)
         
         encoded_size = self.feature_extractor.get_output_size()
+
         
         self.comparer = None
         aggregation_input_size = None
@@ -232,6 +233,7 @@ class LayerComparisonClassifier(nn.Module):
             
             if comparison_method == "no_comparison":
                 aggregation_input_size = encoded_size * num_llm_layers
+                self.encoded_size = encoded_size
             elif single:
                 aggregation_input_size = num_llm_layers
             else: 
@@ -261,27 +263,39 @@ class LayerComparisonClassifier(nn.Module):
     
 
     def plot_classifier_weights(self):
+        # check wether aggreagtor is of type direct classifier
+        if not isinstance(self.aggregator, DirectClassifier):
+            print("Cannot plot weights, aggregator is not a direct classifier")
+            return
         
-        weights = self.final_classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.num_llm_layers)
-        
-        # Create a figure for all layers with each layer having a subplot
-        fig, axes = plt.subplots(self.num_llm_layers, 1, figsize=(10, 2 * self.num_llm_layers))
-        for i in range(self.num_llm_layers):
-            axes[i].bar(range(self.num_llm_layers), weights[i].cpu().numpy())
-            axes[i].set_title(f'Layer {i} Weights')
-            axes[i].set_xlabel('Dimensions')
-            axes[i].set_ylabel('Weight Value')
-        plt.tight_layout()
-        wandb.log({"all_layers_weights":wandb.Image(fig)})
+        if self.comparison_method == "no_comparison":
+            print("shape, ",self.aggregator.classifier.classifier.weight.data.squeeze(0).shape)
+            first_layer_weights = self.aggregator.classifier.classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.encoded_size)
+            # Create a figure for the sum fusion of all layers
+            sum_weights = torch.abs(first_layer_weights).sum(dim=-1).cpu().numpy()
+            sum_fig, ax = plt.subplots(figsize=(10, 5))
+            ax.bar(range(self.num_llm_layers), sum_weights)
+        else:
+            first_layer_weights = self.aggregator.classifier.classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.num_llm_layers)
+            # Create a figure for the sum fusion of all layers
+            sum_weights = torch.abs(first_layer_weights).sum(dim=0).cpu().numpy()
+            sum_fig, ax = plt.subplots(figsize=(10, 5))
+            ax.bar(range(self.num_llm_layers), sum_weights)
+        ## Create a figure for all layers with each layer having a subplot
+        #fig, axes = plt.subplots(self.num_llm_layers, 1, figsize=(10, 2 * self.num_llm_layers))
+        #for i in range(self.num_llm_layers):
+        #    axes[i].bar(range(self.num_llm_layers), first_layer_weights[i].cpu().numpy())
+        #    axes[i].set_title(f'Layer {i} Weights')
+        #    axes[i].set_xlabel('Dimensions')
+        #    axes[i].set_ylabel('Weight Value')
+        #plt.tight_layout()
+        #wandb.log({"all_layers_weights":wandb.Image(fig)})
 
-        # Create a figure for the sum fusion of all layers
-        sum_weights = torch.abs(weights).sum(dim=0).cpu().numpy()
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.bar(range(self.num_llm_layers), sum_weights)
         ax.set_title('Sum Fusion of All Layers Weights')
         ax.set_xlabel('Dimensions')
         ax.set_ylabel('Weight Value')
-        wandb.log({"sum_fusion_weights":wandb.Image(fig)})
+        #wandb.log({"sum_fusion_weights":wandb.Image(sum_fig)})
+        return sum_fig
     
     def freeze_aggregator(self):
         for param in self.aggregator.parameters():
