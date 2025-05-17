@@ -65,30 +65,37 @@ def create_baseline_table(path, layer_depths):
 def create_llm_table(path, comparison_method):
     llms = ["meta-llama/Llama-3.1-8B-Instruct" ,"google/gemma-3-1b-it" ,"google/gemma-3-4b-it" ,"google/gemma-3-12b-it" ,"google/gemma-3-27b-it" ,"meta-llama/Llama-3.2-1B-Instruct" ,"meta-llama/Llama-3.2-3B-Instruct" ,"meta-llama/Llama-3.3-70B-Instruct"]
     llms = [llm[llm.rfind("/")+1:] for llm in llms]
-    llm_f1_scores = {llm: 0 for llm in llms}
+    latex_rows = []
     for llm in llms:
         # example file layer_comparison_classifier_refact_gemma-3-12b-it_1_no_comparison_flattend_aggregation_False_2_False_5_f1s.pth 
-        file_name = f"layer_comparison_classifier_refact_{llm}_1_{comparison_method}_flattend_aggregation_False_2_False_100_f1s.pth"
-        file_path = os.path.join(path, file_name)
-        if os.path.exists(file_path):
-            f1_scores = torch.load(file_path)
+        file_name = f"layer_comparison_classifier_refact_{llm}_1_{comparison_method}_flattend_aggregation_False_2_False_100"
+        test_file_path = os.path.join(path, file_name+"_f1s.pth")
+        val_file_path = os.path.join(path, file_name+"_val_f1s.pth")
+        if os.path.exists(test_file_path):
+            test_f1_scores = torch.load(test_file_path)
+            val_f1_scores = torch.load(val_file_path)
+            
             #filter out f1 scores that are zero 
-            #print("filtered out" + str(f1_scores[f1_scores == 0].shape[0]) + " f1 scores")
-            #f1_scores = f1_scores[f1_scores != 0]
-            llm_f1_scores[llm] = f1_scores.mean().item()
+            original_mean = test_f1_scores.mean().item()
+            filtered_count = val_f1_scores[val_f1_scores == 0].shape[0]
+            test_f1_scores = test_f1_scores[val_f1_scores != 0]
+            filtered_mean = test_f1_scores.mean().item()
+
+            latex_rows.append(f"{llm} & {original_mean:.2f} & {filtered_mean:.2f} & {filtered_count} \\\\ \\hline") 
         else:
-            print(f"File not found: {file_path}")
+            #print(f"File not found: {file_path}")
+            latex_rows.append(f"{llm} & N/A & N/A & N/A \\\\ \\hline")
 
             continue
     # Generate LaTeX table
     latex_table = r"""
 \begin{table}[]
-\begin{tabular}{|l|l|}
+\begin{tabular}{|l|l|l|l|}
 \hline
-\multicolumn{1}{|c|}{\textbf{LLM}} & \textbf{F1 Score} \\ \hline
+\multicolumn{1}{|c|}{\textbf{LLM}} & \textbf{F1 Score} & \textbf{Filtered F1 Score} & \textbf{Filtered Count} \\ \hline
 """
-    for llm, score in llm_f1_scores.items():
-        latex_table += f"{llm} & {score:.2f} \\\\ \hline" + "\n"
+    for latex_row in latex_rows:
+        latex_table += latex_row + "\n"
     latex_table += r"""
 \end{tabular}
 \caption{F1 Scores for Different LLMs using Comparison Method: """ + comparison_mapping[comparison_method] + r"""}
@@ -295,8 +302,9 @@ if __name__ == "__main__":
     print(create_baseline_table(path, layer_depths))
 
     print("Statistics of LLMs")
-    print(create_llm_table("./thesis/data/different_llms", comparison_method="no_comparison"))
-    print(create_llm_table("./thesis/data/different_llms", comparison_method="cosine"))
+    llm_path = "./thesis/data/different_llms_smaller_batch"
+    print(create_llm_table(llm_path, comparison_method="no_comparison"))
+    print(create_llm_table(llm_path, comparison_method="cosine"))
 
 # ./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.3-70B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_f1s.pth
 #./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.1-8B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_recs.pth

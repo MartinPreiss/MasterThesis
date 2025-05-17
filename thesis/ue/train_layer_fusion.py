@@ -7,6 +7,7 @@ from thesis.models.model_handling import get_model
 from thesis.metrics import calculate_metrics
 from thesis.data_handling.data_handling import get_embedding_dataset, get_dataloaders
 from thesis.utils import print_number_of_parameters, get_device, init_wandb
+from thesis.data_handling.data_handling import get_refact_test_indices 
 
 from thesis.models.loss.contrastive_loss import ContrastiveLoss
 from omegaconf import DictConfig
@@ -20,6 +21,73 @@ import os
 warnings.filterwarnings("always")
 
 device = get_device()
+
+
+def test_fake_fact_setting(cfg, model, test_loader):
+
+    test_indices, df_ids = get_refact_test_indices(cfg)
+
+    original_labels = [0] * len(test_indices) 
+    original_labels.extend([1] * len(test_indices))
+    test_indices.extend([test_indice+len(test_indices) for test_indice in test_indices])
+
+    all_preds = []
+    all_labels = []
+    for i, data in enumerate(test_loader, 0):
+        with torch.no_grad():
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
+            outputs = torch.where(
+                outputs >= 0.0, 1.0, 0.0)
+            all_preds.extend(outputs)
+            all_labels.extend(labels)
+    #calculate meetrics of classifier 
+    
+    print("Classifier results on test set (hallucination setting)")
+    acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
+    print(f"Test on {cfg.benchmark.name} - Acc: {acc}, Prec: {prec}, Rec: {rec}, F1: {f1}")
+
+    final_preds = []
+    llm_outputs = []
+    for i in range(len(test_indices)): 
+        pred = bool(all_preds[i])
+        model_did_mistake = bool(all_labels[i])
+        fake_fact_in_input = bool(original_labels[i])
+        
+        if fake_fact_in_input: 
+            llm_output = True if not model_did_mistake else False
+        else: 
+            llm_output = True if model_did_mistake else False
+        llm_outputs.append(llm_output)
+
+        if pred: 
+            final_preds.append(not llm_output)
+        else:
+            final_preds.append(llm_output)
+    
+    # convert to tensor
+    final_preds = torch.Tensor(final_preds).to(device)
+    llm_outputs = torch.Tensor(llm_outputs).to(device)
+    original_labels = torch.Tensor(original_labels).to(device)
+
+
+    # calculate metrics  without adding mdel to prevent mistakes
+    acc, prec, rec, f1 = calculate_metrics(
+        preds=llm_outputs, labels=original_labels
+    )
+
+    print("Fake Fact setting result without adding model to prevent mistakes")
+    print(f"Test on {cfg.benchmark.name} - Acc: {acc}, Prec: {prec}, Rec: {rec}, F1: {f1}")
+
+    # calculate metric with orignal labels with final preds
+    acc, prec, rec, f1 = calculate_metrics(
+        preds=final_preds, labels=original_labels
+    )
+    print("Fake Fact setting result by adding model to prevent mistakes")
+    print(f"Test on {cfg.benchmark.name} - Acc: {acc}, Prec: {prec}, Rec: {rec}, F1: {f1}")
+
+
 
 def train(cfg,model, train_loader, val_loader):
     
@@ -219,6 +287,8 @@ def train_layer_fusion(cfg : DictConfig):
         print(e)
         print("Could not plot classifier weights")
 
+    #if cfg.benchmark.name == "refact":
+    #    test_fake_fact_setting(cfg,model,test_loader)
 def finetune_layer_fusion(cfg : DictConfig):
     
     init_wandb(cfg)
@@ -273,6 +343,42 @@ def get_validation_metrics(cfg,model,val_loader):
     
     return acc, prec, rec, f1
 
+def pretrain_on_haluleval(cfg: DictConfig):
+
+    
+    cfg.task.training_params.batch_size = 100
+    cfg.benchmark.name = "haluleval"
+    cfg.task.use_pretrained = False
+    cfg.task.training_params.learning_rate = 1e-3
+
+    # Load the dataset
+    dataset = get_embedding_dataset(cfg)
+    
+    # dataset = Subset(dataset,range(10))
+    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+
+    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
+    num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
+    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
+
+    model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
+        device
+    )
+    print_number_of_parameters(model)
+
+    train(cfg,
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+    )
+    #save model 
+    date = datetime.datetime.now().strftime("%H_%M__%d_%m_%Y")
+    model_path = f"thesis/data/models/{cfg.model.name}_{cfg.benchmark.name}_{date}.pth"
+    print("saving model to ",model_path)
+    torch.save(model.state_dict(),model_path)
+
+    return model_path
+
 def average_earlystopping(cfg : DictConfig):
     
     init_wandb(cfg)
@@ -313,18 +419,39 @@ def average_earlystopping(cfg : DictConfig):
     embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
     num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
     print("Embedding Size", embedding_size, "Number of Layers", num_layers)
+
+    if cfg.task.use_pretrained and ((cfg.model.pretrained_model_path is None) or (cfg.model.pretrained_model_path == "None")):
+        print("pretraining on haluleval benchmark")
+        cfg.model.pretrained_model_path = pretrain_on_haluleval(cfg)
+        cfg.task.use_pretrained = True
+        
     
     cfg.wandb.use_wandb = False
+    val_accs, val_precs, val_recs, val_f1s = [],[],[],[]
     accs,precs, recs, f1s = [],[],[],[]
     for i in tqdm(range(cfg.task.number_of_runs)):
         model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
         device
         )
+        
+        if cfg.task.use_pretrained: 
+            model.load_state_dict(torch.load(cfg.model.pretrained_model_path))
+            model.freeze_last_layers()
+            print("use pretrained model from: ",cfg.model.pretrained_model_path)
+
         train(cfg,
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
         )
+        #val metrics 
+        val_acc, val_prec, val_rec, val_f1 = get_validation_metrics(cfg,model,val_loader)
+        val_accs.append(val_acc)
+        val_precs.append(val_prec)
+        val_recs.append(val_rec)
+        val_f1s.append(val_f1)        
+
+        #test metrics
         acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
         accs.append(acc)
         precs.append(prec)
@@ -332,6 +459,11 @@ def average_earlystopping(cfg : DictConfig):
         f1s.append(f1)
     
     # calculate average and log for wandb 
+    val_accs = torch.Tensor(val_accs)
+    val_precs = torch.Tensor(val_precs)
+    val_recs = torch.Tensor(val_recs)
+    val_f1s = torch.Tensor(val_f1s)
+
     accs = torch.Tensor(accs)
     precs = torch.Tensor(precs)
     recs = torch.Tensor(recs)
@@ -351,15 +483,29 @@ def average_earlystopping(cfg : DictConfig):
         )
 
     #save tensors 
-
+    torch.save(val_accs, f"{path}/{file_name}_val_accs.pth")
+    torch.save(val_precs, f"{path}/{file_name}_val_precs.pth")
+    torch.save(val_recs, f"{path}/{file_name}_val_recs.pth")
+    torch.save(val_f1s, f"{path}/{file_name}_val_f1s.pth")
     
     torch.save(accs, f"{path}/{file_name}_accs.pth")
     torch.save(precs, f"{path}/{file_name}_precs.pth")
     torch.save(recs, f"{path}/{file_name}_recs.pth")
     torch.save(f1s, f"{path}/{file_name}_f1s.pth")
     
-        
-        
-    
-    
-    
+            
+def test_on_all_benchmarks(cfg, model): 
+
+    benchmarks = ["haluleval","refact","truthfulqa"]
+
+    for benchmark in benchmarks:
+        cfg.benchmark.name = benchmark
+        # Load the dataset
+        dataset = get_embedding_dataset(cfg)
+
+        # dataset = Subset(dataset,range(10))
+        train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+
+        #test the model on the test set
+        acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
+        print(f"Test on {benchmark} - Acc: {acc}, Prec: {prec}, Rec: {rec}, F1: {f1}")

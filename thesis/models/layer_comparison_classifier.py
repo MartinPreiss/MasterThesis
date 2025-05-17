@@ -273,33 +273,25 @@ class LayerComparisonClassifier(nn.Module):
             first_layer_weights = self.aggregator.classifier.classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.encoded_size)
             # Create a figure for the sum fusion of all layers
             sum_weights = torch.abs(first_layer_weights).sum(dim=-1).cpu().numpy()
-            sum_fig, ax = plt.subplots(figsize=(10, 5))
-            ax.bar(range(self.num_llm_layers), sum_weights)
         else:
             first_layer_weights = self.aggregator.classifier.classifier.weight.data.squeeze(0).view(self.num_llm_layers,self.num_llm_layers)
             # Create a figure for the sum fusion of all layers
             sum_weights = torch.abs(first_layer_weights).sum(dim=0).cpu().numpy()
-            sum_fig, ax = plt.subplots(figsize=(10, 5))
-            ax.bar(range(self.num_llm_layers), sum_weights)
-        ## Create a figure for all layers with each layer having a subplot
-        #fig, axes = plt.subplots(self.num_llm_layers, 1, figsize=(10, 2 * self.num_llm_layers))
-        #for i in range(self.num_llm_layers):
-        #    axes[i].bar(range(self.num_llm_layers), first_layer_weights[i].cpu().numpy())
-        #    axes[i].set_title(f'Layer {i} Weights')
-        #    axes[i].set_xlabel('Dimensions')
-        #    axes[i].set_ylabel('Weight Value')
-        #plt.tight_layout()
-        #wandb.log({"all_layers_weights":wandb.Image(fig)})
+        sum_fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(range(1,self.num_llm_layers+1), sum_weights)
 
         ax.set_title('Sum Fusion of All Layers Weights')
-        ax.set_xlabel('Dimensions')
-        ax.set_ylabel('Weight Value')
+        ax.set_xlabel('Layer ID')
+        ax.set_ylabel('Sum of Weights')
         #wandb.log({"sum_fusion_weights":wandb.Image(sum_fig)})
         return sum_fig
     
     def freeze_aggregator(self):
         for param in self.aggregator.parameters():
             param.requires_grad = False
+    
+    def freeze_last_layers(self): 
+        self.freeze_aggregator()
 
     
     def load_classifier_weights(self, path_layer_comparison_classifier, path_crf=None):

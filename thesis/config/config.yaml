@@ -15,7 +15,7 @@ wandb:
 #dataset
 
 seed: 42
-use_network_mounted: False
+use_network_mounted: True
 
 #dataset
 pca:

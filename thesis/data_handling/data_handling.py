@@ -50,7 +50,6 @@ def get_embedding_dataset(cfg):
         dataset = PCADataset(dataset,n_components=cfg.pca.n_components,layer_wise=cfg.pca.layer_wise)
     if  cfg.use_coveig:
         dataset = CovEigDataset(dataset)
-        
     return dataset
 
 def get_positional_dataset(cfg): 
@@ -138,6 +137,36 @@ def perform_train_val_test_split(cfg,dataset):
     print("Testset Size:", len(test_dataset))
 
     return train_dataset, val_dataset, test_dataset
+
+def get_refact_test_indices(cfg):
+    
+    cfg.benchmark.name = "refact"
+
+    # Load the dataset
+    dataset = get_embedding_dataset(cfg)
+
+    # Split the dataset
+    data_size = len(dataset)
+    train_size = int(0.7 * data_size)
+    test_val_size = data_size - train_size 
+
+    # Get test indices
+    train_indices, val_indices, test_indices = get_refact_split(cfg, test_val_size)
+
+    print("len(train_indices):", len(train_indices))
+    print("len(val_indices):", len(val_indices))
+    print("len(test_indices):", len(test_indices)) 
+
+    # Get original IDs from your DataFrame
+    df = get_df(cfg)
+    original_ids = df["unique_row_id"].tolist()
+
+    # Map test set indices to original IDs
+    df_ids = [original_ids[i] for i in test_indices]
+
+    #print("Test IDs:", test_ids)
+    print("len(df_ids):", len(df_ids))
+    return test_indices, df_ids
 
 def get_dataloaders(cfg,dataset):
     
