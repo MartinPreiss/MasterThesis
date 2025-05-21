@@ -247,12 +247,14 @@ def train(cfg,model, train_loader, val_loader):
             torch.save(early_stopping_checkpoint,model_path)
         else:
             torch.save(checkpoint_model,model_path)
+    return model
 
 def train_layer_fusion(cfg : DictConfig):
     
     init_wandb(cfg)
     # Load the dataset
     dataset = get_embedding_dataset(cfg)
+    print("trainin on benchmark: ",cfg.benchmark.name)
     
     # dataset = Subset(dataset,range(10))
     train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
@@ -267,11 +269,16 @@ def train_layer_fusion(cfg : DictConfig):
     
     if cfg.task.use_pretrained: 
         model.load_state_dict(torch.load(cfg.model.pretrained_model_path))
-        model.freeze_last_layers()
+        if cfg.model.freeze_last_layers:
+            print("use pretrained model from: ",cfg.model.pretrained_model_path)
+            print("freezing last layers")
+            model.freeze_last_layers()
+        else:
+            print("no freezing of last layers")
 
     print_number_of_parameters(model)
 
-    train(cfg,
+    model = train(cfg,
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -289,6 +296,9 @@ def train_layer_fusion(cfg : DictConfig):
 
     #if cfg.benchmark.name == "refact":
     #    test_fake_fact_setting(cfg,model,test_loader)
+
+    
+    return model 
 def finetune_layer_fusion(cfg : DictConfig):
     
     init_wandb(cfg)
@@ -492,12 +502,72 @@ def average_earlystopping(cfg : DictConfig):
     torch.save(precs, f"{path}/{file_name}_precs.pth")
     torch.save(recs, f"{path}/{file_name}_recs.pth")
     torch.save(f1s, f"{path}/{file_name}_f1s.pth")
+
+def average_in_domain_shift(cfg: DictConfig):    
+
     
+    if cfg.task.use_pretrained:
+        saving_path = "thesis/data/avg_in_domain_shift_pretrained/"
+        if cfg.model.freeze_last_layers:
+            saving_path = "thesis/data/avg_in_domain_pretrained_freezed/"
+    else:
+        saving_path = "thesis/data/avg_in_domain_shift/"
+    comparison_method = cfg.model.comparison_method
+    filename = f"{cfg.task.first_benchmark}_{cfg.task.second_benchmark}_{comparison_method}_results.pth"
+    if os.path.exists(saving_path + filename):
+        print("File already exists, skipping")
+        return
+
+    results = {
+        "test_results":[],
+        "val_results":[]
+    }
+    for i in range(cfg.task.number_of_runs):
+        first_benchmark = cfg.task.first_benchmark
+        second_benchmark = cfg.task.second_benchmark
+
+        if cfg.task.use_pretrained:
+            #pretrain on first benchmark
+            cfg.benchmark.name = first_benchmark
+            cfg.task.use_pretrained = False
+            model = train_layer_fusion(cfg)
+
+            model_path = f"thesis/data/models/{cfg.model.name}_{cfg.benchmark.name}.pth"
+            print("saving model to ",model_path)
+            torch.save(model.state_dict(),model_path)
+            cfg.model.pretrained_model_path = model_path
+            cfg.task.use_pretrained = True 
+
+        #pretrain on second benchmark
+        cfg.benchmark.name = second_benchmark
+
+        model = train_layer_fusion(cfg)
+
+        #get validation metrics
+        dataset = get_embedding_dataset(cfg)
+        train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+        val_acc, val_prec, val_rec, val_f1 = get_validation_metrics(cfg,model,val_loader)
+        results["val_results"].append({
+            "acc": val_acc,
+            "prec": val_prec,
+            "rec": val_rec,
+            "f1": val_f1
+        })
+        #test on all benchmarks
+        test_result = test_on_all_benchmarks(cfg,model)
+
+        results["test_results"].append(test_result)
+
+    #save results dict 
+    torch.save(results,saving_path + filename)
+    print("saved results to ",saving_path + filename)
+
             
 def test_on_all_benchmarks(cfg, model): 
 
     benchmarks = ["haluleval","refact","truthfulqa"]
 
+    results = {}
     for benchmark in benchmarks:
         cfg.benchmark.name = benchmark
         # Load the dataset
@@ -509,3 +579,11 @@ def test_on_all_benchmarks(cfg, model):
         #test the model on the test set
         acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
         print(f"Test on {benchmark} - Acc: {acc}, Prec: {prec}, Rec: {rec}, F1: {f1}")
+
+        results[benchmark] = {  
+            "acc": acc,
+            "prec": prec,
+            "rec": rec,
+            "f1": f1
+        }
+    return results

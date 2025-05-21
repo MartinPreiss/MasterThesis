@@ -1,5 +1,6 @@
-name: lcc_with_crf
-pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_11_39__12_05_2025.pth
+name: lcc_with_crf 
+#pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_11_39__12_05_2025.pth # cos_sim
+pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_00_01__13_05_2025.pth # no_comparison
 
 ## Model parameters
 num_classes: 1

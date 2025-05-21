@@ -1,11 +1,13 @@
-name: train_positional_layer_fusion 
+name: average_in_domain_shift
 
-tag_scheme: IO
+number_of_runs: 10
 
-use_pipeline: False
-freeze_lcc: False
-use_pretrained: False
-use_downsampling: False
+path_to_save: ./thesis/data/avgs_in_domain_shift
+
+use_pretrained: True
+first_benchmark: ???
+second_benchmark: ???
+
 #method 
 training_params:
   learning_rate: 0.001
@@ -18,5 +20,4 @@ training_params:
   save_model: False
   early_stopping: True
   patience: 5
-  downsampling_ratio: 0.5
-  crf_loss_use_cross_entropy: False
+

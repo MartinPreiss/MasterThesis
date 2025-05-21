@@ -62,13 +62,13 @@ def create_baseline_table(path, layer_depths):
 """
     return latex_table      
 
-def create_llm_table(path, comparison_method):
+def create_llm_table(path, comparison_method,benchmark_name="truthfulqa"):
     llms = ["meta-llama/Llama-3.1-8B-Instruct" ,"google/gemma-3-1b-it" ,"google/gemma-3-4b-it" ,"google/gemma-3-12b-it" ,"google/gemma-3-27b-it" ,"meta-llama/Llama-3.2-1B-Instruct" ,"meta-llama/Llama-3.2-3B-Instruct" ,"meta-llama/Llama-3.3-70B-Instruct"]
     llms = [llm[llm.rfind("/")+1:] for llm in llms]
     latex_rows = []
     for llm in llms:
         # example file layer_comparison_classifier_refact_gemma-3-12b-it_1_no_comparison_flattend_aggregation_False_2_False_5_f1s.pth 
-        file_name = f"layer_comparison_classifier_refact_{llm}_1_{comparison_method}_flattend_aggregation_False_2_False_100"
+        file_name = f"layer_comparison_classifier_{benchmark_name}_{llm}_1_{comparison_method}_flattend_aggregation_False_2_False_5"
         test_file_path = os.path.join(path, file_name+"_f1s.pth")
         val_file_path = os.path.join(path, file_name+"_val_f1s.pth")
         if os.path.exists(test_file_path):
@@ -103,6 +103,95 @@ def create_llm_table(path, comparison_method):
 \end{table}
 """
     return latex_table
+
+def create_in_domain_shift_table(comparison_method, pretrained=True, freeze=True):
+    # thesis/data/avg_in_domain_shift/haluleval_refact_results.pth
+    if pretrained:
+        if freeze:
+            path = "./thesis/data/avg_in_domain_shift_pretrained_original_hyp"
+        else:
+            path = "./thesis/data/avg_in_domain_shift_pretrained_no_freeze"
+    else:
+        path =  "./thesis/data/avg_in_domain_shift_original_hyp"
+        #path = "./thesis/data/avg_in_domain_shift"
+    files = os.listdir(path) 
+    latex_rows = []
+    all_test_scores = []
+    benchmark_names  = ["refact", "haluleval", "truthfulqa"]
+    for file in files: 
+        if not comparison_method in file: 
+            continue 
+        result_dict = torch.load(os.path.join(path, file))
+        test_results = result_dict["test_results"]
+        val_results = result_dict["val_results"]
+        #postprocess the f1 score dict 
+        val_f1_scores = torch.tensor([val_score_dict["f1"] for val_score_dict in val_results])
+        
+        benchmark_test_f1_scores = []
+        filtered_count = val_f1_scores[val_f1_scores == 0].shape[0]
+
+        benchmark_results = []
+        for benchmark_name in benchmark_names:
+            test_f1_scores = torch.tensor([test_score_dict[benchmark_name]["f1"] for test_score_dict in test_results])
+            all_test_scores.append(test_f1_scores)
+            #filter out f1 scores that are zero
+            original_mean = test_f1_scores.mean().item()
+            test_f1_scores = test_f1_scores[val_f1_scores != 0]
+            filtered_mean = test_f1_scores.mean().item()
+            benchmark_results.append((original_mean, filtered_mean))
+            
+        if pretrained: 
+            first_benchmark_name = file.split("_")[0]
+            second_benchmark_name = file.split("_")[1]
+
+            results_concatenated = " & ".join([f"{test_result[1]:.2f}" for test_result in benchmark_results])
+            latex_row = f"{first_benchmark_name} & {second_benchmark_name} & {results_concatenated} & {filtered_count} \\\\ \\hline"
+
+        else:
+            second_benchmark_name = file.split("_")[1]
+            benchmark_results = [f"{test_result[1]:.2f}" for test_result in benchmark_results]
+            latex_row = f"{second_benchmark_name} & " + " & ".join(benchmark_results) + f" & {filtered_count} \\\\ \\hline"
+        latex_rows.append(latex_row)
+
+    print("total avg f1 score", torch.cat(all_test_scores).mean().item())
+    #-----> all cosine method
+    # total avg of 0.2793 not pretraind
+    #total avg f1 score 0.4174473285675049 no freeze
+    # total avg filtered f1 score 0.4725818634033203 no freeze
+    #total avg f1 score 0.45711055397987366 freeze 
+    # total avg filtered f1 score 0.4897262156009674 freeze 
+    # Generate LaTeX table
+
+    if pretrained:
+        latex_table = r"""
+\begin{table}[]
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\multirow{2}{*}{\textbf{Trained on}} & \multirow{2}{*}{\textbf{Finetuned on}} & \multicolumn{3}{c|}{\textbf{Tested on}} \\ \cline{3-5}
+&  & \textbf{ReFact} & \textbf{HaluEval} & \textbf{TruthfulQA} \\ \hline
+"""
+    else:
+        latex_table = r"""
+\begin{tabular}{|l|l|l|l|}
+\hline
+\multirow{2}{*}{\textbf{Trained on}} & \multicolumn{3}{c|}{\textbf{Tested on} & Filtered Count} \\ \cline{2-4}
+                                & \textbf{ReFact} & \textbf{HaluEval} & \textbf{TruthfulQA} &\\ \hline
+"""
+    for latex_row in latex_rows:
+        latex_table += latex_row + "\n"
+    latex_table += r"""
+\end{tabular}
+\caption{F1 Scores for Different Benchmarks using Comparison Method: """ + comparison_mapping[comparison_method] 
+    latex_table += "with freezed aggregation" if freeze else "with non-freezed aggregation"
+    latex_table += "with pretrained model" if pretrained else "without pretrained model"
+    latex_table += r"""}
+\label{tab:in_domain_shift_f1_scores}
+\end{table}
+"""
+
+    return latex_table
+
+
 
 def load_f1_scores_and_create_table(path,final_classifier, layer_depths, comparison_methods):
     # Initialize a dictionary to store F1 scores
@@ -279,32 +368,37 @@ if __name__ == "__main__":
         "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"
     ]
 
-    #aggregation_methods=["shared_classifier_ensemble","flattend_aggregation"]
-    aggregation_methods = ["flattend_aggregation"]
+    aggregation_methods=["shared_classifier_ensemble","flattend_aggregation"]
+    #aggregation_methods = ["flattend_aggregation"]
     non_linearity_classifier=[True,False]
 
-
     final_layer_classifiers = [method + "_" + str(non_linearity) for method in aggregation_methods for non_linearity in non_linearity_classifier]
-    
+    """
     for final_classifier in final_layer_classifiers:
         latex_table = load_f1_scores_and_create_table(path,final_classifier=final_classifier,layer_depths=layer_depths,comparison_methods=comparison_methods)
         print(aggregation_mapping[final_classifier])
         print(latex_table)
     print_statistics_of_classifier(path,final_classifiers=final_layer_classifiers,layer_depths=layer_depths,comparison_methods=comparison_methods)
 
+
     print("Statistics of layers")
     print_statistics_of_layers(path,final_classifiers=final_layer_classifiers,layer_depths=layer_depths,comparison_methods=comparison_methods)
 
     print("Statistics of comparison methods")
     print_statistics_of_comparison_methods(path,final_classifiers=final_layer_classifiers,layer_depths=layer_depths,comparison_methods=comparison_methods)
-
+    """
     print("Statistics of baselines")
     print(create_baseline_table(path, layer_depths))
-
     print("Statistics of LLMs")
-    llm_path = "./thesis/data/different_llms_smaller_batch"
-    print(create_llm_table(llm_path, comparison_method="no_comparison"))
-    print(create_llm_table(llm_path, comparison_method="cosine"))
+    llm_path = "./thesis/data/different_llms_truthfulqa"
+    print(create_llm_table(llm_path, comparison_method="no_comparison", benchmark_name="truthfulqa"))
+    print(create_llm_table(llm_path, comparison_method="cosine", benchmark_name="truthfulqa"))
+    
+    
 
-# ./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.3-70B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_f1s.pth
-#./thesis/data/different_llms/layer_comparison_classifier_refact_Llama-3.1-8B-Instruct_1_cosine_flattend_aggregation_False_2_False_10_recs.pth
+
+    #print("In domain shift")
+    #print(create_in_domain_shift_table(comparison_method="no_comparison", pretrained=False))
+    #print(create_in_domain_shift_table(comparison_method="no_comparison", pretrained=True))
+    #print(create_in_domain_shift_table(comparison_method="no_comparison", pretrained=True, freeze=False))
+    

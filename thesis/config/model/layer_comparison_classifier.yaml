@@ -1,10 +1,12 @@
 name: layer_comparison_classifier 
-pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_11_39__12_05_2025.pth
-
-
+#pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_11_39__12_05_2025.pth # cos_sim
+#pretrained_model_path: thesis/data/models/layer_comparison_classifier_haluleval_00_01__13_05_2025.pth # no_comparison
+pretrained_model_path: None
 ## Model parameters
 num_classes: 1
 comparison_method: cosine
 aggregation_method: flattend_aggregation
 final_classifier_non_linear: False
 layer_depth: 2
+
+freeze_last_layers: True 

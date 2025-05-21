@@ -42,7 +42,7 @@ def get_embedding_dataset(cfg):
         dataset_path = f"/mnt/vast-gorilla/martin.preiss/datasets/last_token/"
     else:
         dataset_path = f"/home/martin.preiss/MasterThesis/thesis/data/datasets/embeddings/"
-    print("loading dataset from",dataset_path)
+    print("loading dataset from",dataset_path + f"embedding_{model_name}_{cfg.benchmark.name}.pth")
 
     dataset = torch.load(f"{dataset_path}embedding_{model_name}_{cfg.benchmark.name}.pth",weights_only=False)#,map_location=torch.device('cpu'))   
     if cfg.pca.use_pca:
@@ -174,9 +174,14 @@ def get_dataloaders(cfg,dataset):
 
     # Create DataLoaders for training and validation
     batch_size = cfg.task.training_params.batch_size
-    train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
-    val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
-    test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False,num_workers=0, pin_memory=False)
+    if cfg.task.name == "train_positional_layer_fusion":
+        train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
+        val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
+        test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False,num_workers=0, pin_memory=False)
+    else:
+        train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True )#,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
+        val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False)#,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
+        test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False)#,num_workers=0, pin_memory=False)
     
     return train_loader, val_loader, test_loader
 
