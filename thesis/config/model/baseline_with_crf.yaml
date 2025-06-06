@@ -1,6 +1,6 @@
-name: baseline 
+name: baseline_with_crf
 pretrained_model_path: None
-
+classifier_name: last_layer
 num_classes: 1
 layer_depth: 2
 

@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from thesis.models.layer_comparison_classifier import CRFAggregator
 
 
 class SingleLayer(nn.Module):
@@ -38,12 +39,16 @@ class SingleLayer(nn.Module):
 class MiddleLayer(SingleLayer):
     
     def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size):
+        print("hardcoded layer depth")
+        layer_depth = 2 
         super().__init__(num_llm_layers, embedding_size, layer_depth,output_size,num_llm_layers // 2)
         
         self.target_layer = self.num_llm_layers // 2
             
 class LastLayer(SingleLayer):
     def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size):
+        print("hardcoded layer depth")
+        layer_depth = 3 
         super().__init__(num_llm_layers, embedding_size, layer_depth,output_size,-1)
         
         self.target_layer = -1  # Last layer
@@ -51,6 +56,8 @@ class LastLayer(SingleLayer):
 class StackedLayers(nn.Module):
     
     def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size):
+        print("hardcoded layer depth")
+        layer_depth = 3
         super().__init__()
         
         self.num_llm_layers = num_llm_layers
@@ -84,6 +91,8 @@ class StackedLayers(nn.Module):
 
 class AllLayersEnsemble(nn.Module):
     def __init__(self, num_llm_layers, embedding_size, layer_depth,output_size):
+        print("hardcoded layer depth")
+        layer_depth = 1 
         super().__init__()
         
         self.num_llm_layers = num_llm_layers
@@ -102,6 +111,30 @@ class AllLayersEnsemble(nn.Module):
         outs = outs.permute(1, 2, 0)  # Change to [batch, output_size, num_llm_layers]
         result = self.aggregation_layer(self.activation_func(outs)).squeeze(-1)
         return result, None
+
+class BaselineWithCrf(nn.Module):
+        
+    def __init__(self, cfg,num_llm_layers, embedding_size):
+        super().__init__()
+        self.num_llm_layers = num_llm_layers
+        self.embedding_size = embedding_size
+        old_name = cfg.model.name
+        cfg.model.name = cfg.model.classifier_name
+        from thesis.models.model_handling import get_model
+        self.classifier  = get_model(cfg,embedding_size,num_llm_layers)
+        self.crf = CRFAggregator(cfg.model.num_classes)
+        cfg.model.name = old_name
+
+    def forward(self, x,contrastive_loss=False, tags=None, mask=None):
+        #x should be [batch, seq_length, num_layers, embedding_size]
+        batch_size = x.shape[0]
+        seq_length = x.shape[1]
+        x = x.view(batch_size * seq_length, self.num_llm_layers, self.embedding_size)
+        result, _ = self.classifier(x,contrastive_loss)
+        # Reshape result to [batch_size, seq_length, classes]
+        result = result.view(batch_size, seq_length, -1)
+
+        return self.crf(result, tags, mask) 
 
 if __name__ == "__main__":
     # Example usage
@@ -127,5 +160,3 @@ if __name__ == "__main__":
     model = AllLayersEnsemble(num_llm_layers, embedding_size, layer_depth, output_size)
     output, _ = model(x)
     print(output.shape)
-
-    

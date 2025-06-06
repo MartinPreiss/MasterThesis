@@ -3,8 +3,11 @@ import torch
 import numpy as np
 
 def convert_onehot2bio(tensor): 
-    
-   #get 1 ranges as tuples 
+    # if all values are zero return 
+    if torch.all(tensor == 0):
+        return  torch.nn.functional.one_hot(tensor.long(), num_classes=3).float()
+
+    #get 1 ranges as tuples 
     one_indices = torch.nonzero(tensor).flatten()
     
     #print(one_indices)
@@ -23,7 +26,7 @@ def convert_onehot2bio(tensor):
     
     
     bio_tensor = torch.zeros(tensor.shape)
-    bio_tensor[one_indices] = bio_values
+    bio_tensor[one_indices] = bio_values.unsqueeze(-1)
 
     #map to class vectors 
     bio_tensor = torch.nn.functional.one_hot(bio_tensor.long(), num_classes=3).float()
@@ -31,6 +34,9 @@ def convert_onehot2bio(tensor):
     return bio_tensor
 
 def convert_onehot2bioes(tensor):
+
+    if torch.all(tensor == 0):
+        return  torch.nn.functional.one_hot(tensor.long(), num_classes=5).float()
     
     #get 1 ranges as tuples 
     one_indices = torch.nonzero(tensor).flatten()
@@ -66,7 +72,7 @@ def convert_onehot2bioes(tensor):
             bio_values[start+1:end] = 2
     
     bio_tensor = torch.zeros(tensor.shape)
-    bio_tensor[one_indices] = bio_values
+    bio_tensor[one_indices] = bio_values.unsqueeze(-1)
     
     
     bio_tensor = torch.nn.functional.one_hot(bio_tensor.long(), num_classes=5).float()

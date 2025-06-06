@@ -1,6 +1,7 @@
 name: average_in_domain_shift
 
 number_of_runs: 10
+positional_task: False
 
 path_to_save: ./thesis/data/avgs_in_domain_shift
 

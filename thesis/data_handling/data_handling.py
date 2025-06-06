@@ -174,7 +174,7 @@ def get_dataloaders(cfg,dataset):
 
     # Create DataLoaders for training and validation
     batch_size = cfg.task.training_params.batch_size
-    if cfg.task.name == "train_positional_layer_fusion":
+    if cfg.task.positional_task:
         train_loader = DataLoader(train_dataset,batch_size=batch_size, shuffle=True,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
         val_loader = DataLoader(val_dataset,batch_size=batch_size, shuffle=False,num_workers=0, pin_memory=False, collate_fn=pad_collate_fn)
         test_loader = DataLoader(test_dataset,batch_size=1, shuffle=False,num_workers=0, pin_memory=False)

@@ -1,5 +1,5 @@
 name: train_positional_layer_fusion 
-
+positional_task: True
 tag_scheme: IO
 
 use_pipeline: False

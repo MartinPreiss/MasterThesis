@@ -3,7 +3,7 @@ from thesis.models.lstm import LSTMModel
 from thesis.models.mamba import MambaClassifier
 from thesis.models.layer_comparison_classifier import LayerComparisonClassifier, LCC_with_CRF
 
-from thesis.models.baselines import LastLayer, MiddleLayer, StackedLayers, AllLayersEnsemble
+from thesis.models.baselines import LastLayer, MiddleLayer, StackedLayers, AllLayersEnsemble, BaselineWithCrf
 
 def get_model(cfg,embedding_size, num_layers):
     if cfg.model.name == "all_layer_classifier":
@@ -57,5 +57,7 @@ def get_model(cfg,embedding_size, num_layers):
         return StackedLayers(num_llm_layers=num_layers, embedding_size=embedding_size, layer_depth=cfg.model.layer_depth,output_size=cfg.model.num_classes)
     elif cfg.model.name == "all_layers_ensemble":
         return AllLayersEnsemble(num_llm_layers=num_layers, embedding_size=embedding_size, layer_depth=cfg.model.layer_depth,output_size=cfg.model.num_classes)
+    elif cfg.model.name == "baseline_with_crf":
+        return BaselineWithCrf(cfg,num_layers,embedding_size)
     else:
         raise ValueError(f"Model {cfg.model.name} not recognized.")

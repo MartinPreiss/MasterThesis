@@ -67,7 +67,8 @@ class MLPEncoder(nn.Module):
             self.layers.append(nn.Linear(in_features=current_size, out_features=next_size))
             
             current_size = next_size
-
+        if num_layers == 0:
+            next_size = input_size
         self.output_size = next_size
         
         print("no_init")
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     # Example usage
     
     # Example usage
-    depth = 3
+    depth = 0
     embedding_size = 3584
     layer_size = 42
     batch_size = 100
@@ -360,7 +361,7 @@ if __name__ == "__main__":
     comparison_methods = ["no_comparison", "dot_product", "euclidean_norm", "manhatten", "pairwise_dot_product", "euclidean_distance", "manhatten_distance", "cosine"]
     aggregation_methods = ["shared_classifier_ensemble", "different_classifiers_ensemble", "flattend_aggregation"]
     
-    """
+    
     for comparison_method in comparison_methods:
         for aggregation_method in aggregation_methods:
             for linearity in [True, False]:
@@ -380,7 +381,7 @@ if __name__ == "__main__":
                     print(output.shape)
                 except Exception as e:
                     print(f"Error: {e}")
-    """
+    
 
     seq_length = 200
     model = LCC_with_CRF(

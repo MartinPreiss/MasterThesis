@@ -512,8 +512,11 @@ def average_in_domain_shift(cfg: DictConfig):
             saving_path = "thesis/data/avg_in_domain_pretrained_freezed/"
     else:
         saving_path = "thesis/data/avg_in_domain_shift/"
-    comparison_method = cfg.model.comparison_method
-    filename = f"{cfg.task.first_benchmark}_{cfg.task.second_benchmark}_{comparison_method}_results.pth"
+    if cfg.model.name == "layer_comparison_classifier":
+        comparison_method = cfg.model.comparison_method
+    else: 
+        comparison_method = "none"
+    filename = f"{cfg.model.name}__{cfg.task.first_benchmark}__{cfg.task.second_benchmark}__{comparison_method}_results.pth"
     if os.path.exists(saving_path + filename):
         print("File already exists, skipping")
         return

@@ -32,7 +32,7 @@ def test_with_crf(cfg,model,test_loader):
             inputs, labels = inputs.to(device), labels.to(device)
 
 
-            if cfg.model.name == "lcc_with_crf":
+            if "with_crf" in cfg.model.name:
                 neg_likelihood, emissions = model(inputs,cfg.task.training_params.use_contrastive_loss,tags=labels)
                 
                 reshaped_emissions = emissions.view((emissions.shape[0]*emissions.shape[1],emissions.shape[2]))
@@ -76,6 +76,50 @@ def test_with_crf(cfg,model,test_loader):
     print("F1 Score: ",f1,"Accuracy: ",acc,"Precision: ",prec,"Recall: ",rec)
     print("test Loss: ",test_loss)
     print("IoU: ",iou)
+    return acc, prec, rec, f1, iou
+
+def test_without_crf(cfg,model,test_loader):
+    all_preds = []
+    all_labels = []
+    val_loss = 0
+    classification_loss = nn.CrossEntropyLoss().to(device)
+    for i, data in enumerate(test_loader, 0):
+        with torch.no_grad():
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+            batch_size = inputs.shape[0]
+            seq_length = inputs.shape[1]
+            num_llm_layers = inputs.shape[2]
+            embedding_size = inputs.shape[3]
+            inputs = inputs.view(batch_size * seq_length, num_llm_layers, embedding_size)
+            labels = labels.view(batch_size * seq_length, -1).squeeze()
+            val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
+            val_loss = classification_loss(val_outputs, torch.argmax(labels,dim=-1))
+            val_loss += val_loss.item()
+            all_preds.append(convert_tagging2onehot(val_outputs))
+            all_labels.append(convert_tagging2onehot(labels))
+    val_loss /= len(test_loader)
+    # Calculate metrics after each epoch
+    all_preds = torch.cat(all_preds)
+    all_labels = torch.cat(all_labels)
+    acc, prec, rec, f1 = calculate_metrics(
+        preds=all_preds, labels=all_labels
+    )
+    iou = calculate_iou(all_preds,all_labels)
+    if cfg.wandb.use_wandb:
+        wandb.log(
+            data={
+                "ckpt_loss":val_loss,
+                "ckpt_acc": acc,
+                "ckpt_precision": prec,
+                "ckpt_recall": rec,
+                "ckpt_f1": f1
+            }
+        )
+    print("F1 Score: ",f1,"Accuracy: ",acc,"Precision: ",prec,"Recall: ",rec)
+    print("Validation Loss: ",val_loss)
+
+    return acc, prec, rec, f1, iou
 
 
 def train(cfg,model, train_loader, val_loader):
@@ -214,48 +258,7 @@ def train(cfg,model, train_loader, val_loader):
     # get final evaluation
     if cfg.task.training_params.early_stopping:
         model.load_state_dict(early_stopping_checkpoint)
-        all_preds = []
-        all_labels = []
-        val_loss = 0
-        for i, data in enumerate(val_loader, 0):
-            with torch.no_grad():
-                inputs, labels = data
-                inputs, labels = inputs.to(device), labels.to(device)
-                batch_size = inputs.shape[0]
-                seq_length = inputs.shape[1]
-                num_llm_layers = inputs.shape[2]
-                embedding_size = inputs.shape[3]
-                inputs = inputs.view(batch_size * seq_length, num_llm_layers, embedding_size)
-                labels = labels.view(batch_size * seq_length, -1).squeeze()
-                val_outputs,encoded_space = model(inputs,cfg.task.training_params.use_contrastive_loss)
-                if cfg.task.training_params.use_contrastive_loss:
-                    val_loss = classification_loss(val_outputs, labels) + contrastive_loss(encoded_space,labels)
-                else:
-                    val_loss = classification_loss(val_outputs, torch.argmax(labels,dim=-1))
-                val_loss += val_loss.item()
-                all_preds.append(convert_tagging2onehot(val_outputs))
-                all_labels.append(convert_tagging2onehot(labels))
-
-        val_loss /= len(val_loader)
-        # Calculate metrics after each epoch
-        all_preds = torch.cat(all_preds)
-        all_labels = torch.cat(all_labels)
-        acc, prec, rec, f1 = calculate_metrics(
-            preds=all_preds, labels=all_labels
-        )
-        if cfg.wandb.use_wandb:
-            wandb.log(
-                data={
-                    "ckpt_loss":val_loss,
-                    "ckpt_acc": acc,
-                    "ckpt_precision": prec,
-                    "ckpt_recall": rec,
-                    "ckpt_f1": f1,
-                    "early_stopping_epoch":epoch
-                }
-            )
-        print("F1 Score: ",f1,"Accuracy: ",acc,"Precision: ",prec,"Recall: ",rec)
-        print("Validation Loss: ",val_loss)
+        test_without_crf(cfg,model,val_loader)
        
     # Save the model checkpoint
     if cfg.task.training_params.save_model:
@@ -512,7 +515,7 @@ def train_positional_layer_fusion(cfg : DictConfig):
 
     print_number_of_parameters(model)
 
-    if cfg.model.name == "lcc_with_crf":
+    if "with_crf" in cfg.model.name:
         model = train_with_crf(cfg,
             model=model,
             train_loader=train_loader,
@@ -531,44 +534,34 @@ def train_positional_layer_fusion(cfg : DictConfig):
     
     #validate model 
     #reinit val_loader 
-
-    if cfg.model.name == "lcc_with_crf":
-        cfg.task.training_params.batch_size = 1
-        dataset = get_positional_dataset(cfg)
-        train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
-        test_with_crf(cfg,model,val_loader)
-    
-    
-def finetune_layer_fusion(cfg : DictConfig):
-    
-    init_wandb(cfg)
-    # Load the dataset
     dataset = get_positional_dataset(cfg)
-    
-    # dataset = Subset(dataset,range(10))
     train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
+    cfg.task.training_params.batch_size = 1
 
-    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
-    num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
-    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
+    if "with_crf" in cfg.model.name:
+        val_acc, val_prec, val_rec, val_f1, val_iou = test_with_crf(cfg,model,val_loader)
+        test_acc, test_prec, test_rec, test_f1, test_iou = test_with_crf(cfg,model,test_loader)
+    else: 
+        val_acc, val_prec, val_rec, val_f1, val_iou = test_without_crf(cfg,model,val_loader)
+        test_acc, test_prec, test_rec, test_f1, test_iou = test_without_crf(cfg,model,test_loader)
+    
+    val_dict = {
+        "acc": val_acc,
+        "prec": val_prec,
+        "rec": val_rec,
+        "f1": val_f1,
+        "iou": val_iou
+    }
+    test_dict = {
+        "acc": test_acc,
+        "prec": test_prec,
+        "rec": test_rec,
+        "f1": test_f1,
+        "iou": test_iou
+    }
 
-    model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
-        device
-    )
-    
-    print_number_of_parameters(model)
+    return val_dict, test_dict
 
-    train(cfg,
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-    )
-    
-    
-    try:    
-        model.plot_classifier_weights()
-    except:
-        print("Could not plot classifier weights")
 
 def get_validation_metrics(cfg,model,val_loader):
     all_preds = []
@@ -594,87 +587,40 @@ def get_validation_metrics(cfg,model,val_loader):
     
     return acc, prec, rec, f1
 
-def average_earlystopping(cfg : DictConfig):
+def average_positional_runs(cfg : DictConfig):
     
     init_wandb(cfg)
-
     
-    
-    path= "./thesis/data/avgs_early_stopping"
-    benchmark_name = cfg.benchmark.name
+    saving_path = "./thesis/data/positions/"
     model_name = cfg.model.name
-    contrastive_loss = cfg.task.training_params.use_contrastive_loss
 
-    if cfg.model.name == "layer_comparison_classifier":
-        # load important parameters out of config 
-        num_classes = cfg.model.num_classes
+    # load important parameters out of config 
+    tag_scheme = cfg.task.tag_scheme
+    if model_name == "lcc_with_crf" or model_name == "layer_comparison_classifier":
         comparison_method = cfg.model.comparison_method
-        aggregation_method = cfg.model.aggregation_method
-        final_classifier_non_linear = cfg.model.final_classifier_non_linear
-        layer_depth = cfg.model.layer_depth
-
-        file_name = f"{model_name}_{benchmark_name}__{num_classes}_{comparison_method}_{aggregation_method}_{final_classifier_non_linear}_{layer_depth}_{contrastive_loss}_{cfg.task.training_params.patience}"
-    
     else:
-        file_name = f"{model_name}_{benchmark_name}_{cfg.task.training_params.patience}"
-    
-    if os.path.exists(f"{path}/{file_name}_f1s.pth"): 
+        comparison_method = "None"
+    num_runs = cfg.task.number_of_runs
+    if model_name == "baseline_with_crf":
+        model_name = model_name + "_" + cfg.model.classifier_name
+    file_name = f"{model_name}__{tag_scheme}__{comparison_method}__{cfg.task.training_params.patience}__{num_runs}.pth"
+        
+    if os.path.exists(f"{saving_path}/{file_name}"): 
         print("File already exists, skipping")
         return
-
-    # Load the dataset
-    dataset = get_positional_dataset(cfg)
-    
-    # dataset = Subset(dataset,range(10))
-    train_loader, val_loader, test_loader = get_dataloaders(cfg,dataset)
-
-    embedding_size = dataset[0][0].shape[-1]  # first batch, first input #embedding size
-    num_layers = dataset[0][0].shape[-2]  # first batch, first input #embedding size
-    print("Embedding Size", embedding_size, "Number of Layers", num_layers)
-    
-    cfg.wandb.use_wandb = False
-    accs,precs, recs, f1s = [],[],[],[]
+    results = {
+        "test_results":[],
+        "val_results":[]
+    }
     for i in tqdm(range(cfg.task.number_of_runs)):
-        model = get_model(cfg,embedding_size=embedding_size,num_layers=num_layers).to(
-        device
-        )
-        train(cfg,
-            model=model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-        )
-        acc, prec, rec, f1 = get_validation_metrics(cfg,model,test_loader)
-        accs.append(acc)
-        precs.append(prec)
-        recs.append(rec)
-        f1s.append(f1)
-    
-    # calculate average and log for wandb 
-    accs = torch.Tensor(accs)
-    precs = torch.Tensor(precs)
-    recs = torch.Tensor(recs)
-    f1s = torch.Tensor(f1s)
-    if cfg.wandb.use_wandb:
-        wandb.log(
-            data={
-                "avg_acc": accs.mean(),
-                "avg_precision": precs.mean(),
-                "avg_recall": recs.mean(),
-                "avg_f1": f1s.mean(),
-                "std_acc": accs.std(),
-                "std_precision": precs.std(),
-                "std_recall": recs.std(),
-                "std_f1": f1s.std(),
-            }
-        )
+        val_dict, test_dict = train_positional_layer_fusion(cfg)
+        results["val_results"].append(val_dict)
+        results["test_results"].append(test_dict)
 
-    #save tensors 
-
-    
-    torch.save(accs, f"{path}/{file_name}_accs.pth")
-    torch.save(precs, f"{path}/{file_name}_precs.pth")
-    torch.save(recs, f"{path}/{file_name}_recs.pth")
-    torch.save(f1s, f"{path}/{file_name}_f1s.pth")
+    print("Results: ",results)    
+    #save results dict 
+    torch.save(results,saving_path + file_name)
+    print("saved results to ",saving_path + file_name)
     
         
         
